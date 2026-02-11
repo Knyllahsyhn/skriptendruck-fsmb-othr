@@ -12,7 +12,7 @@ from ..config import get_logger, settings, setup_logging
 from ..database.service import DatabaseService
 from ..models import OrderStatus
 from ..processing.pipeline import OrderPipeline
-from ..services import PricingService
+from ..services import FileOrganizer, PricingService
 from ..services.excel_service import ExcelExportService
 
 app = typer.Typer(
@@ -33,17 +33,16 @@ def process(
         "-i",
         help="Verzeichnis mit Aufträgen (Standard: aus Settings)"
     ),
-    output_dir: Optional[Path] = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="Ausgabeverzeichnis (Standard: aus Settings)"
-    ),
     sequential: bool = typer.Option(
         False,
         "--sequential",
         help="Sequenzielle statt parallele Verarbeitung"
     ),
+        no_organize: bool = typer.Option(
+            False,
+            "--no-organize",
+            help="Dateien nicht in Ordnerstruktur verschieben"
+        ),
     verbose: bool = typer.Option(
         False,
         "--verbose",
@@ -55,25 +54,31 @@ def process(
     Verarbeitet Druckaufträge.
 
     Liest PDF-Dateien aus dem Auftragsverzeichnis, validiert Benutzer,
-    berechnet Preise und erstellt Deckblätter.
+    berechnet Preise, erstellt Deckblätter und organisiert die Ausgabe
+    in die Ordnerstruktur (02_Druckfertig, 04_Fehler, etc.).
     """
     # Logging einrichten
     log_level = "DEBUG" if verbose else settings.log_level
     setup_logging(level=log_level, log_file=settings.log_file)
 
-    # Verzeichnisse
-    orders_dir = orders_dir or settings.get_orders_directory()
-    output_dir = output_dir or settings.get_output_directory()
-
     # Parallel-Option
     settings.parallel_processing = not sequential
 
+    # FileOrganizer initialisieren und Ordnerstruktur sicherstellen
+    organizer = FileOrganizer()
+    organizer.ensure_directory_structure()
+
+    # Verzeichnisse
+    orders_dir = orders_dir or organizer.get_input_dir()
+
     console.print(f"\n[bold blue]Skriptendruck - Verarbeitung[/bold blue]")
-    console.print(f"Aufträge: {orders_dir}")
-    console.print(f"Ausgabe: {output_dir}\n")
+    console.print(f"Aufträge:     {orders_dir}")
+    console.print(f"Druckfertig:  {organizer.base_path / organizer.DIR_PRINT}")
+    console.print(f"Originale:    {organizer.get_originals_dir()}")
+    console.print()
 
     # Pipeline initialisieren
-    pipeline = OrderPipeline()
+    pipeline = OrderPipeline(file_organizer=organizer)
 
     # Aufträge finden
     with Progress(
@@ -102,24 +107,40 @@ def process(
             total=len(orders)
         )
 
-        processed_orders = pipeline.process_orders(orders, output_dir)
+        processed_orders = pipeline.process_orders(
+            orders,
+            organize_files=not no_organize,
+        )
         progress.update(task, completed=len(orders))
 
     # Zusammenfassung
-    _display_summary(processed_orders)
+    _display_summary(processed_orders, organizer)
 
 
 @app.command()
-def init_data() -> None:
+def init(
+        base_path: Optional[Path] = typer.Option(
+            None,
+            "--base-path",
+            "-p",
+            help="Basispfad für die Ordnerstruktur"
+        ),
+) -> None:
     """
-    Initialisiert Beispieldaten und Konfigurationsdateien.
+    Initialisiert die Ordnerstruktur und Beispieldaten.
 
     Erstellt:
+    - Komplette Ordnerstruktur (01_Auftraege bis 05_Manuell)
     - Beispiel-Ringbindungsgrößen (binding_sizes.json)
-    - Beispiel-Blacklist
+    - Beispiel-Blacklist und CSV
     - Beispiel-.env-Datei
     """
-    console.print("\n[bold blue]Initialisiere Daten...[/bold blue]\n")
+    console.print("\n[bold blue]Initialisiere Skriptendruck...[/bold blue]\n")
+
+    # FileOrganizer
+    organizer = FileOrganizer(base_path=base_path) if base_path else FileOrganizer()
+    organizer.ensure_directory_structure()
+    console.print(f"[green]✓[/green] Ordnerstruktur erstellt unter: {organizer.base_path}")
 
     # Binding Sizes JSON
     pricing_service = PricingService()
@@ -171,6 +192,25 @@ def init_data() -> None:
             f.write("#LOG_FILE=skriptendruck.log\n")
         console.print(f"[green]✓[/green] Erstellt: {env_example_path}")
 
+    # Ordnerstruktur anzeigen
+    console.print("\n[bold]Ordnerstruktur:[/bold]")
+    console.print(f"  {organizer.base_path}/")
+    console.print(f"    ├── {organizer.DIR_INPUT}/")
+    console.print(f"    ├── {organizer.DIR_PRINT}/")
+    console.print(f"    │   ├── {organizer.DIR_PRINT_SW}/")
+    console.print(f"    │   │   └── {organizer.DIR_PRINTED}/")
+    console.print(f"    │   └── {organizer.DIR_PRINT_COLOR}/")
+    console.print(f"    │       └── {organizer.DIR_PRINTED}/")
+    console.print(f"    ├── {organizer.DIR_ORIGINALS}/")
+    console.print(f"    ├── {organizer.DIR_ERRORS}/")
+    console.print(f"    │   ├── benutzer_nicht_gefunden/")
+    console.print(f"    │   ├── gesperrt/")
+    console.print(f"    │   ├── zu_wenig_seiten/")
+    console.print(f"    │   ├── zu_viele_seiten/")
+    console.print(f"    │   ├── passwortgeschuetzt/")
+    console.print(f"    │   └── sonstige/")
+    console.print(f"    └── {organizer.DIR_MANUAL}/")
+
     console.print("\n[green]Initialisierung abgeschlossen![/green]")
 
 
@@ -186,7 +226,8 @@ def stats(
     """
     Zeigt Statistiken über vorhandene Aufträge.
     """
-    orders_dir = orders_dir or settings.get_orders_directory()
+    organizer = FileOrganizer()
+    orders_dir = orders_dir or organizer.get_input_dir()
 
     pipeline = OrderPipeline()
     orders = pipeline.discover_orders(orders_dir)
@@ -304,7 +345,7 @@ def db_stats() -> None:
     console.print()
 
 
-def _display_summary(orders: list) -> None:
+def _display_summary(orders: list, organizer: FileOrganizer) -> None:
     """Zeigt Zusammenfassung der verarbeiteten Aufträge."""
     console.print("\n[bold blue]Zusammenfassung[/bold blue]\n")
 
@@ -315,12 +356,41 @@ def _display_summary(orders: list) -> None:
 
     console.print(f"Gesamt: {total}")
     console.print(f"[green]Erfolgreich: {success}[/green]")
-    console.print(f"[red]Fehler: {errors}[/red]\n")
+    if errors > 0:
+        console.print(f"[red]Fehler: {errors}[/red]")
+    console.print()
+
+    # Erfolgreiche Aufträge
+    if success > 0:
+        success_table = Table(title="Verarbeitete Aufträge")
+        success_table.add_column("ID", style="cyan", width=6)
+        success_table.add_column("Dateiname")
+        success_table.add_column("Benutzer")
+        success_table.add_column("Seiten", justify="right")
+        success_table.add_column("Preis", justify="right", style="green")
+        success_table.add_column("Ziel")
+
+        for order in orders:
+            if order.status == OrderStatus.PROCESSED:
+                user_str = order.user.full_name if order.user else "?"
+                price_str = order.price_calculation.total_price_formatted if order.price_calculation else "?"
+                target = "sw/" if order.color_mode and order.color_mode.value == "sw" else "farbig/"
+                success_table.add_row(
+                    str(order.order_id),
+                    order.filename,
+                    user_str,
+                    str(order.page_count or "?"),
+                    price_str,
+                    target,
+                )
+
+        console.print(success_table)
+        console.print()
 
     # Fehler-Details
     if errors > 0:
         error_table = Table(title="Fehler")
-        error_table.add_column("Order ID", style="cyan")
+        error_table.add_column("ID", style="cyan", width=6)
         error_table.add_column("Dateiname")
         error_table.add_column("Status", style="red")
         error_table.add_column("Nachricht")

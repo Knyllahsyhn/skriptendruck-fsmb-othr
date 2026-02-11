@@ -68,13 +68,20 @@ class TestPricingService:
         
         assert not is_valid
         assert "wenig" in error.lower()
-    
-    def test_validate_page_count_too_many(self) -> None:
-        """Test: Validierung - zu viele Seiten für Bindung."""
+
+    def test_validate_page_count_too_many_for_binding(self) -> None:
+        """Test: Validierung - zu viele Seiten für Bindung (max 660)."""
         is_valid, error = self.service.validate_page_count(700, BindingType.SMALL)
         
         assert not is_valid
         assert "viele" in error.lower() or "max" in error.lower()
+
+    def test_validate_page_count_at_max(self) -> None:
+        """Test: Validierung - genau an der Obergrenze (660 Seiten)."""
+        is_valid, error = self.service.validate_page_count(660, BindingType.SMALL)
+
+        assert is_valid
+        assert error is None
     
     def test_validate_page_count_valid(self) -> None:
         """Test: Validierung - gültige Seitenzahl."""
@@ -94,6 +101,69 @@ class TestPricingService:
         # Deutsches Format mit Komma
         assert "," in calc.total_price_formatted
         assert "€" in calc.total_price_formatted
+
+    def test_large_binding_price(self) -> None:
+        """Test: Große Bindung ab 301 Seiten kostet 1,50€."""
+        calc = self.service.calculate_price(
+            pages=350,
+            color_mode=ColorMode.BLACK_WHITE,
+            binding_type=BindingType.SMALL,  # Wird auf LARGE hochgestuft
+        )
+
+        assert calc.binding_type == BindingType.LARGE
+        assert calc.binding_price == 1.50
+
+    def test_small_binding_at_boundary(self) -> None:
+        """Test: Kleine Bindung bei genau 300 Seiten."""
+        calc = self.service.calculate_price(
+            pages=300,
+            color_mode=ColorMode.BLACK_WHITE,
+            binding_type=BindingType.SMALL,
+        )
+
+        assert calc.binding_type == BindingType.SMALL
+        assert calc.binding_price == 1.00
+
+    def test_binding_size_mm_is_float(self) -> None:
+        """Test: Bindungsgröße in mm ist ein Float (z.B. 6.9, 14.3)."""
+        calc = self.service.calculate_price(
+            pages=50,
+            color_mode=ColorMode.BLACK_WHITE,
+            binding_type=BindingType.SMALL,
+        )
+
+        assert calc.binding_size_mm is not None
+        assert isinstance(calc.binding_size_mm, float)
+
+    def test_binding_size_lookup_various_pages(self) -> None:
+        """Test: Korrekte Bindungsgröße für verschiedene Seitenzahlen."""
+        test_cases = [
+            (50, 6.9),  # 1-80 Seiten
+            (90, 8.0),  # 81-100
+            (110, 9.5),  # 101-120
+            (140, 11.0),  # 121-150
+            (170, 12.7),  # 151-180
+            (200, 14.3),  # 181-210
+            (230, 16.0),  # 211-240
+            (270, 19.0),  # 241-300
+            (330, 22.0),  # 301-360
+            (400, 25.4),  # 361-420
+            (450, 28.5),  # 421-480
+            (520, 32.0),  # 481-540
+            (600, 38.0),  # 541-660
+        ]
+
+        for pages, expected_mm in test_cases:
+            binding = self.service.get_binding_size_for_pages(pages)
+            assert binding is not None, f"No binding found for {pages} pages"
+            assert binding.size_mm == expected_mm, (
+                f"Expected {expected_mm}mm for {pages} pages, got {binding.size_mm}mm"
+            )
+
+    def test_no_binding_for_excess_pages(self) -> None:
+        """Test: Keine Bindungsgröße für >660 Seiten."""
+        binding = self.service.get_binding_size_for_pages(700)
+        assert binding is None
 
 
 if __name__ == "__main__":

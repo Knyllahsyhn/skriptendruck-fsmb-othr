@@ -64,8 +64,8 @@ class Settings(BaseSettings):
     
     # Seitengrenzen
     min_pages: int = Field(default=1, description="Minimale Seitenzahl")
-    max_pages_small_binding: int = Field(default=320, description="Max Seiten kleine Bindung")
-    max_pages_large_binding: int = Field(default=600, description="Max Seiten große Bindung")
+    max_pages_small_binding: int = Field(default=300, description="Max Seiten kleine Bindung")
+    max_pages_large_binding: int = Field(default=660, description="Max Seiten große Bindung")
     
     # Bindungsgrößen Tabelle
     binding_sizes_path: Path = Field(

@@ -36,7 +36,7 @@ class OrderRecord(Base):
     # Auftragsdaten
     color_mode: Mapped[Optional[str]] = mapped_column(String(20))  # 'sw' oder 'color'
     binding_type: Mapped[Optional[str]] = mapped_column(String(20))  # 'none', 'small', 'large', 'folder'
-    binding_size_mm: Mapped[Optional[int]] = mapped_column(Integer)
+    binding_size_mm: Mapped[Optional[float]] = mapped_column(Float)
     
     # Preise
     price_per_page: Mapped[Optional[float]] = mapped_column(Float)

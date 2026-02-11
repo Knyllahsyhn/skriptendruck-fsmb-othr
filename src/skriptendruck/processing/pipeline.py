@@ -1,5 +1,6 @@
 """Verarbeitungs-Pipeline für Druckaufträge."""
 import os
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional
@@ -8,14 +9,19 @@ from ..config import get_logger, settings
 from ..database.service import DatabaseService
 from ..models import BindingType, Order, OrderStatus
 from ..services import FilenameParser, PdfService, PricingService, UserService
+from ..services.file_organizer import FileOrganizer
 
 logger = get_logger("pipeline")
 
 
 class OrderPipeline:
     """Pipeline zur Verarbeitung von Druckaufträgen."""
-    
-    def __init__(self, db_service: Optional[DatabaseService] = None) -> None:
+
+    def __init__(
+            self,
+            db_service: Optional[DatabaseService] = None,
+            file_organizer: Optional[FileOrganizer] = None,
+    ) -> None:
         """Initialisiert die Pipeline."""
         self.filename_parser = FilenameParser()
         self.user_service = UserService()
@@ -24,6 +30,9 @@ class OrderPipeline:
         
         # Datenbank-Service (optional)
         self.db_service = db_service or DatabaseService()
+
+        # FileOrganizer für Ordnerstruktur
+        self.file_organizer = file_organizer or FileOrganizer()
         
         self._next_order_id = self._get_next_order_id()
     
@@ -66,7 +75,7 @@ class OrderPipeline:
                     filename=pdf_path.name,
                     filepath=pdf_path,
                     file_size_bytes=pdf_path.stat().st_size,
-                    operator=os.getenv("USER", "unknown"),
+                    operator=os.getenv("USER", os.getenv("USERNAME", "unknown")),
                 )
                 
                 self._next_order_id += 1
@@ -80,26 +89,41 @@ class OrderPipeline:
     def process_orders(
         self,
         orders: List[Order],
-        output_dir: Path,
+            output_dir: Optional[Path] = None,
         save_to_db: bool = True,
+            organize_files: bool = True,
     ) -> List[Order]:
         """
         Verarbeitet eine Liste von Aufträgen.
         
         Args:
             orders: Liste der zu verarbeitenden Aufträge
-            output_dir: Ausgabeverzeichnis
+            output_dir: Temporäres Arbeitsverzeichnis für Zwischendateien
             save_to_db: In Datenbank speichern
+            organize_files: Dateien in Ordnerstruktur organisieren
             
         Returns:
             Liste der verarbeiteten Aufträge
         """
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Temporäres Arbeitsverzeichnis für Deckblätter und Merge
+        if output_dir is None:
+            work_dir = Path(tempfile.mkdtemp(prefix="skriptendruck_"))
+        else:
+            work_dir = output_dir
+            work_dir.mkdir(parents=True, exist_ok=True)
         
         if settings.parallel_processing and len(orders) > 1:
-            processed = self._process_parallel(orders, output_dir)
+            processed = self._process_parallel(orders, work_dir)
         else:
-            processed = self._process_sequential(orders, output_dir)
+            processed = self._process_sequential(orders, work_dir)
+
+        # Dateien in Ordnerstruktur organisieren
+        if organize_files:
+            try:
+                self.file_organizer.organize_batch(processed)
+                logger.info("Dateien in Ordnerstruktur organisiert")
+            except Exception as e:
+                logger.error(f"Fehler beim Organisieren der Dateien: {e}")
         
         # In Datenbank speichern
         if save_to_db:
@@ -169,7 +193,7 @@ class OrderPipeline:
         
         Args:
             order: Zu verarbeitender Auftrag
-            output_dir: Ausgabeverzeichnis
+            output_dir: Arbeitsverzeichnis für Zwischendateien
         """
         logger.info(f"Verarbeite Order #{order.order_id}: {order.filename}")
         
@@ -346,7 +370,7 @@ class OrderPipeline:
                 coversheet_path=order.coversheet_path,
                 document_path=order.filepath,
                 output_path=merged_path,
-                add_empty_page=False,
+                    add_empty_page=True,  # Leere Seite wie im Original (pdftk)
             ):
                 order.merged_pdf_path = merged_path
             else:

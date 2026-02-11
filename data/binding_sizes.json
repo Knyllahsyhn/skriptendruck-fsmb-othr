@@ -1,15 +1,122 @@
 {
   "binding_sizes": [
-    {"min_pages": 1, "max_pages": 80, "size_mm": 8, "binding_type": "small"},
-    {"min_pages": 81, "max_pages": 120, "size_mm": 10, "binding_type": "small"},
-    {"min_pages": 121, "max_pages": 160, "size_mm": 12, "binding_type": "small"},
-    {"min_pages": 161, "max_pages": 200, "size_mm": 14, "binding_type": "small"},
-    {"min_pages": 201, "max_pages": 240, "size_mm": 16, "binding_type": "small"},
-    {"min_pages": 241, "max_pages": 280, "size_mm": 19, "binding_type": "small"},
-    {"min_pages": 281, "max_pages": 320, "size_mm": 22, "binding_type": "small"},
-    {"min_pages": 321, "max_pages": 400, "size_mm": 25, "binding_type": "large"},
-    {"min_pages": 401, "max_pages": 480, "size_mm": 28, "binding_type": "large"},
-    {"min_pages": 481, "max_pages": 600, "size_mm": 32, "binding_type": "large"}
+    {
+      "min_pages": 1,
+      "max_pages": 80,
+      "size_mm": 6.9,
+      "diameter_inch": "1/4",
+      "min_sheets": 1,
+      "max_sheets": 40,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 81,
+      "max_pages": 100,
+      "size_mm": 8.0,
+      "diameter_inch": "5/16",
+      "min_sheets": 41,
+      "max_sheets": 50,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 101,
+      "max_pages": 120,
+      "size_mm": 9.5,
+      "diameter_inch": "3/8",
+      "min_sheets": 51,
+      "max_sheets": 60,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 121,
+      "max_pages": 150,
+      "size_mm": 11.0,
+      "diameter_inch": "7/16",
+      "min_sheets": 61,
+      "max_sheets": 75,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 151,
+      "max_pages": 180,
+      "size_mm": 12.7,
+      "diameter_inch": "1/2",
+      "min_sheets": 76,
+      "max_sheets": 90,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 181,
+      "max_pages": 210,
+      "size_mm": 14.3,
+      "diameter_inch": "9/16",
+      "min_sheets": 91,
+      "max_sheets": 105,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 211,
+      "max_pages": 240,
+      "size_mm": 16.0,
+      "diameter_inch": "5/8",
+      "min_sheets": 106,
+      "max_sheets": 120,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 241,
+      "max_pages": 300,
+      "size_mm": 19.0,
+      "diameter_inch": "3/4",
+      "min_sheets": 121,
+      "max_sheets": 150,
+      "binding_type": "small"
+    },
+    {
+      "min_pages": 301,
+      "max_pages": 360,
+      "size_mm": 22.0,
+      "diameter_inch": "7/8",
+      "min_sheets": 151,
+      "max_sheets": 180,
+      "binding_type": "large"
+    },
+    {
+      "min_pages": 361,
+      "max_pages": 420,
+      "size_mm": 25.4,
+      "diameter_inch": "1",
+      "min_sheets": 181,
+      "max_sheets": 210,
+      "binding_type": "large"
+    },
+    {
+      "min_pages": 421,
+      "max_pages": 480,
+      "size_mm": 28.5,
+      "diameter_inch": "1 1/8",
+      "min_sheets": 211,
+      "max_sheets": 240,
+      "binding_type": "large"
+    },
+    {
+      "min_pages": 481,
+      "max_pages": 540,
+      "size_mm": 32.0,
+      "diameter_inch": "1 1/4",
+      "min_sheets": 241,
+      "max_sheets": 270,
+      "binding_type": "large"
+    },
+    {
+      "min_pages": 541,
+      "max_pages": 660,
+      "size_mm": 38.0,
+      "diameter_inch": "1 1/2",
+      "min_sheets": 271,
+      "max_sheets": 330,
+      "binding_type": "large"
+    }
   ],
-  "_comment": "Ringbindungsgrößen-Tabelle. Diese Werte sind Beispiele!"
+  "_comment": "Ringbindungsgrößen-Tabelle der Fachschaft Maschinenbau HS Regensburg. Seiten = Blätter × 2. Klein bis 300 Seiten, groß ab 301."
 }

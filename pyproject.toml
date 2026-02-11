@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "skriptendruck"
-version = "2.0.0"
+version = "2.3.0"
 description = "Modernisiertes Skriptendruckprogramm für die Fachschaft"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
@@ -14,6 +14,7 @@ pydantic-settings = "^2.6"
 # PDF processing
 pypdf = "^5.1"
 reportlab = "^4.2"  # Für Deckblatterstellung
+PyMuPDF = "^1.24"   # Für Thumbnail-Rendering der ersten Seite
 # LDAP (Windows-kompatibel!)
 ldap3 = "^2.9"
 # Database

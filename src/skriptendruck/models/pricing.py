@@ -24,8 +24,12 @@ class BindingSize(BaseModel):
     
     min_pages: int = Field(..., description="Minimale Seitenzahl")
     max_pages: int = Field(..., description="Maximale Seitenzahl")
-    size_mm: int = Field(..., description="Ringbindungsgröße in mm")
+    size_mm: float = Field(..., description="Ringbindungsgröße in mm")
     binding_type: BindingType = Field(..., description="Typ der Bindung")
+    # Optionale Zusatzinfos aus der Tabelle
+    diameter_inch: Optional[str] = Field(default=None, description="Durchmesser in Zoll")
+    min_sheets: Optional[int] = Field(default=None, description="Minimale Blätterzahl")
+    max_sheets: Optional[int] = Field(default=None, description="Maximale Blätterzahl")
     
     def supports_pages(self, pages: int) -> bool:
         """Prüft ob diese Bindungsgröße für die Seitenzahl passt."""
@@ -41,7 +45,7 @@ class PriceCalculation(BaseModel):
     
     price_per_page: float = Field(..., description="Preis pro Seite")
     binding_price: float = Field(default=0.0, description="Bindungspreis")
-    binding_size_mm: Optional[int] = Field(
+    binding_size_mm: Optional[float] = Field(
         default=None,
         description="Ringbindungsgröße in mm (nur bei Ringbindung)"
     )
