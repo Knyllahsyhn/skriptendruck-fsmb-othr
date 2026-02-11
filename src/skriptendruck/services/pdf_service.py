@@ -31,7 +31,7 @@ class PdfService:
         """
         try:
             reader = PdfReader(pdf_path)
-
+            
             # Passwortschutz prÃ¼fen
             if reader.is_encrypted:
                 logger.warning(f"PDF ist passwortgeschÃ¼tzt: {pdf_path}")
@@ -68,7 +68,7 @@ class PdfService:
                 return None
             
             page = doc[page_index]
-
+            
             # Render mit 1.5x Zoom fÃ¼r gute QualitÃ¤t bei Thumbnail-GrÃ¶ÃŸe
             mat = fitz.Matrix(1.5, 1.5)
             pix = page.get_pixmap(matrix=mat)
@@ -78,7 +78,7 @@ class PdfService:
             tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             tmp_path = tmp.name
             tmp.close()
-
+            
             pix.save(tmp_path)
             doc.close()
             logger.debug(f"Thumbnail erstellt: {tmp_path}")
@@ -114,8 +114,6 @@ class PdfService:
             # Thumbnail der ersten Seite rendern
             if order.filepath and order.filepath.exists():
                 thumbnail_path = self._render_page_thumbnail(order.filepath)
-            if order.filepath and order.filepath.exists():
-               thumbnail_path = self._render_page_thumbnail(order.filepath)
             
             # Canvas erstellen
             c = canvas.Canvas(str(output_path), pagesize=A4)
@@ -160,7 +158,7 @@ class PdfService:
             # --- Preisberechnung ---
             if order.price_calculation:
                 calc = order.price_calculation
-
+                
                 color_text = "Farbe" if calc.color_mode.value == "color" else "Schwarz-WeiÃŸ"
                 draw_field("Druck:", f"{color_text} ({calc.pages_price_formatted})")
                 
@@ -210,7 +208,7 @@ class PdfService:
                     c.setFillColorRGB(0.3, 0.3, 0.3)
                     c.drawString(label_x, preview_label_y, "Vorschau erste Seite:")
                     c.setFillColorRGB(0, 0, 0)
-
+                    
                     # BildgrÃ¶ÃŸe berechnen â€“ max 200pt breit, max verfÃ¼gbare HÃ¶he
                     img = ImageReader(thumbnail_path)
                     img_w, img_h = img.getSize()
@@ -286,7 +284,7 @@ class PdfService:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
             writer = PdfWriter()
-
+            
             # Deckblatt hinzufÃ¼gen
             coversheet_reader = PdfReader(coversheet_path)
             for page in coversheet_reader.pages:
@@ -295,7 +293,7 @@ class PdfService:
             # Optional: Leere Seite
             if add_empty_page:
                 writer.add_blank_page(width=A4[0], height=A4[1])
-
+            
             # Dokument hinzufÃ¼gen
             document_reader = PdfReader(document_path)
             for page in document_reader.pages:
@@ -304,7 +302,7 @@ class PdfService:
             # Speichern
             with open(output_path, "wb") as f:
                 writer.write(f)
-
+            
             logger.info(f"PDFs zusammengefÃ¼gt: {output_path}")
             return True
             
