@@ -143,7 +143,7 @@ class UserService:
             
             # Suche nach Benutzer mit samAccountName
             # Search filter: samAccountName=abc12345
-            search_filter = settings.ldap_search_filter.format(username=username)
+            search_filter =  f"(samAccountName={username})"
             
             # Attribute die wir benötigen
             attributes = [
