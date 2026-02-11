@@ -159,8 +159,6 @@ class UserService:
             else:
                 conn = Connection(server, auto_bind=True, raise_exceptions=True)
 
-            logger.debug(f"LDAP bind erfolgreich: {conn.result}")
-
             # Search-Filter bauen und Klammern sicherstellen
             raw_filter = settings.ldap_search_filter.format(username=username)
             search_filter = self._ensure_ldap_filter_parens(raw_filter)
@@ -182,8 +180,6 @@ class UserService:
                 search_scope=SUBTREE,
                 attributes=attributes,
             )
-
-            logger.debug(f"LDAP result: {conn.result}, entries: {len(conn.entries)}")
             
             if conn.entries:
                 entry = conn.entries[0]
@@ -219,7 +215,7 @@ class UserService:
                 conn.unbind()
                 return user
 
-            logger.debug(f"LDAP: Kein Ergebnis für {username}")
+            logger.info(f"LDAP: Kein Ergebnis für {username}")
             conn.unbind()
             
         except ImportError:

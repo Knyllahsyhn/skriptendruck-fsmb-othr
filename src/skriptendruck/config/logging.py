@@ -18,17 +18,32 @@ def setup_logging(
 ) -> logging.Logger:
     """
     Konfiguriert das Logging mit optionaler Datei-Ausgabe und Rich-Formatierung.
+    
+    Args:
+        level: Logging Level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_file: Optionaler Pfad zur Log-Datei
+        use_rich: Rich Handler für schöne Console-Ausgabe verwenden
+        
+    Returns:
+        Konfigurierter Logger
     """
     global _logging_configured
-    
+
+    log_level = getattr(logging, level.upper(), logging.INFO)
+
+    # === Skriptendruck Logger ===
     logger = logging.getLogger("skriptendruck")
 
-    # Vorhandene Handler entfernen um Duplikate zu vermeiden
+    # ALLE vorhandenen Handler entfernen (verhindert Duplikate)
     logger.handlers.clear()
-    
-    logger.setLevel(getattr(logging, level.upper()))
-    
-    # Formatter
+
+    # Level setzen
+    logger.setLevel(log_level)
+
+    # Propagation AUS - wir wollen NICHT an den Root-Logger weiterleiten
+    logger.propagate = False
+
+    # Formatter für Datei
     file_formatter = logging.Formatter(
         fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -42,12 +57,13 @@ def setup_logging(
             rich_tracebacks=True,
             tracebacks_show_locals=True,
             show_time=False,
+            level=log_level,  # Level direkt im Constructor setzen
         )
     else:
         console_handler = logging.StreamHandler(sys.stderr)
         console_handler.setFormatter(file_formatter)
-    
-    console_handler.setLevel(getattr(logging, level.upper()))
+
+    console_handler.setLevel(log_level)
     logger.addHandler(console_handler)
     
     # File Handler (optional)
@@ -55,21 +71,35 @@ def setup_logging(
         log_file.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setFormatter(file_formatter)
-        file_handler.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.DEBUG)  # Immer alle Details in Datei
         logger.addHandler(file_handler)
 
-    # Propagation verhindern (sonst geht's an root logger)
-    logger.propagate = False
-
+    # === Root Logger absichern ===
+    # Falls irgendein Code den Root-Logger nutzt, soll der auch nicht
+    # DEBUG-Messages auf die Console werfen
+    root = logging.getLogger()
+    if not root.handlers:
+        # NullHandler verhindert "No handlers found" Warnung
+        root.addHandler(logging.NullHandler())
+    root.setLevel(logging.WARNING)
+    
     _logging_configured = True
     return logger
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Gibt einen Logger für ein spezifisches Modul zurück."""
+    """
+    Gibt einen Logger für ein spezifisches Modul zurück.
+    
+    Args:
+        name: Modulname (z.B. 'user_service')
+        
+    Returns:
+        Logger mit Name 'skriptendruck.<name>'
+    """
     global _logging_configured
 
-    # Beim ersten Aufruf: Default-Logging einrichten wenn noch nicht geschehen
+    # Beim allerersten Aufruf: Default-Logging einrichten
     if not _logging_configured:
         setup_logging(level="INFO")
     
