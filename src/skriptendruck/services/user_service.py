@@ -88,6 +88,23 @@ class UserService:
             pass
         
         return None
+
+    @staticmethod
+    def _ensure_ldap_filter_parens(filter_str: str) -> str:
+        """
+        Stellt sicher, dass ein LDAP-Filter in Klammern steht.
+        Active Directory erfordert Filter im Format (attribut=wert).
+        
+        Args:
+            filter_str: Filter-String, z.B. 'samAccountName=abc12345'
+            
+        Returns:
+            Filter mit Klammern, z.B. '(samAccountName=abc12345)'
+        """
+        filter_str = filter_str.strip()
+        if not filter_str.startswith("("):
+            filter_str = f"({filter_str})"
+        return filter_str
     
     def _query_ldap(self, username: str) -> Optional[User]:
         """
@@ -117,7 +134,6 @@ class UserService:
                 )
             
             # LDAP Server initialisieren
-            # Format: adldap.hs-regensburg.de:636 für LDAPS
             server = Server(
                 settings.ldap_server,
                 port=settings.ldap_port,
@@ -129,7 +145,6 @@ class UserService:
             # Verbindung aufbauen
             if settings.ldap_bind_dn and settings.ldap_bind_password:
                 # Mit Authentifizierung (empfohlen für HS Regensburg)
-                # Format: abc12345@hs-regensburg.de
                 conn = Connection(
                     server,
                     user=settings.ldap_bind_dn,
@@ -140,10 +155,12 @@ class UserService:
             else:
                 # Anonyme Verbindung (meist nicht erlaubt bei AD)
                 conn = Connection(server, client_strategy=SAFE_SYNC, auto_bind=True)
-            
-            # Suche nach Benutzer mit samAccountName
-            # Search filter: samAccountName=abc12345
-            search_filter = settings.ldap_search_filter.format(username=username)
+
+            # Search-Filter bauen und Klammern sicherstellen
+            raw_filter = settings.ldap_search_filter.format(username=username)
+            search_filter = self._ensure_ldap_filter_parens(raw_filter)
+
+            logger.debug(f"LDAP search: base={settings.ldap_base_dn}, filter={search_filter}")
             
             # Attribute die wir benötigen
             attributes = [
@@ -193,7 +210,8 @@ class UserService:
                 logger.info(f"User {username} found via LDAP: {user.full_name}")
                 conn.unbind()
                 return user
-            
+
+            logger.debug(f"LDAP: Kein Ergebnis für {username}")
             conn.unbind()
             
         except ImportError:

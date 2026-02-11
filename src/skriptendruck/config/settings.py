@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     )
     ldap_bind_password: Optional[str] = Field(default=None, description="LDAP Bind Password")
     ldap_search_filter: str = Field(
-        default="samAccountName={username}",
+        default="(samAccountName={username})",
         description="LDAP Search Filter Template"
     )
     
