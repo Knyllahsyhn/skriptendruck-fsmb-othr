@@ -88,6 +88,23 @@ class UserService:
             pass
         
         return None
+
+    @staticmethod
+    def _ensure_ldap_filter_parens(filter_str: str) -> str:
+        """
+        Stellt sicher, dass ein LDAP-Filter in Klammern steht.
+        Active Directory erfordert Filter im Format (attribut=wert).
+        
+        Args:
+            filter_str: Filter-String, z.B. 'samAccountName=abc12345'
+            
+        Returns:
+            Filter mit Klammern, z.B. '(samAccountName=abc12345)'
+        """
+        filter_str = filter_str.strip()
+        if not filter_str.startswith("("):
+            filter_str = f"({filter_str})"
+        return filter_str
     
     def _query_ldap(self, username: str) -> Optional[User]:
         """
@@ -101,7 +118,7 @@ class UserService:
             User-Objekt oder None
         """
         try:
-            from ldap3 import Server, Connection, SAFE_SYNC, ALL, Tls
+            from ldap3 import Server, Connection, ALL, Tls, SUBTREE
             import ssl
             
             if not settings.ldap_server or not settings.ldap_base_dn:
@@ -111,39 +128,44 @@ class UserService:
             # TLS/SSL Konfiguration für LDAPS
             tls_configuration = None
             if settings.ldap_use_ssl:
-                tls_configuration = Tls(
-                    validate=ssl.CERT_REQUIRED,
-                    version=ssl.PROTOCOL_TLSv1_2,
-                )
+                try:
+                    tls_configuration = Tls(
+                        validate=ssl.CERT_REQUIRED,
+                        version=ssl.PROTOCOL_TLSv1_2,
+                    )
+                except Exception as tls_err:
+                    logger.warning(f"TLS strikt fehlgeschlagen: {tls_err}, Fallback CERT_NONE")
+                    tls_configuration = Tls(validate=ssl.CERT_NONE)
             
             # LDAP Server initialisieren
-            # Format: adldap.hs-regensburg.de:636 für LDAPS
             server = Server(
                 settings.ldap_server,
                 port=settings.ldap_port,
                 use_ssl=settings.ldap_use_ssl,
                 tls=tls_configuration,
-                get_info=ALL
+                get_info=ALL,
+                connect_timeout=10,
             )
-            
-            # Verbindung aufbauen
+
+            # Verbindung aufbauen (ohne SAFE_SYNC – wie im Test-Skript)
             if settings.ldap_bind_dn and settings.ldap_bind_password:
-                # Mit Authentifizierung (empfohlen für HS Regensburg)
-                # Format: abc12345@hs-regensburg.de
                 conn = Connection(
                     server,
                     user=settings.ldap_bind_dn,
                     password=settings.ldap_bind_password,
-                    client_strategy=SAFE_SYNC,
-                    auto_bind=True
+                    auto_bind=True,
+                    raise_exceptions=True,
                 )
             else:
-                # Anonyme Verbindung (meist nicht erlaubt bei AD)
-                conn = Connection(server, client_strategy=SAFE_SYNC, auto_bind=True)
-            
-            # Suche nach Benutzer mit samAccountName
-            # Search filter: samAccountName=abc12345
-            search_filter =  f"(samAccountName={username})"
+                conn = Connection(server, auto_bind=True, raise_exceptions=True)
+
+            logger.debug(f"LDAP bind erfolgreich: {conn.result}")
+
+            # Search-Filter bauen und Klammern sicherstellen
+            raw_filter = settings.ldap_search_filter.format(username=username)
+            search_filter = self._ensure_ldap_filter_parens(raw_filter)
+
+            logger.debug(f"LDAP search: base={settings.ldap_base_dn}, filter={search_filter}")
             
             # Attribute die wir benötigen
             attributes = [
@@ -157,8 +179,11 @@ class UserService:
             conn.search(
                 search_base=settings.ldap_base_dn,
                 search_filter=search_filter,
-                attributes=attributes
+                search_scope=SUBTREE,
+                attributes=attributes,
             )
+
+            logger.debug(f"LDAP result: {conn.result}, entries: {len(conn.entries)}")
             
             if conn.entries:
                 entry = conn.entries[0]
@@ -193,7 +218,8 @@ class UserService:
                 logger.info(f"User {username} found via LDAP: {user.full_name}")
                 conn.unbind()
                 return user
-            
+
+            logger.debug(f"LDAP: Kein Ergebnis für {username}")
             conn.unbind()
             
         except ImportError:
@@ -288,7 +314,7 @@ class UserService:
         faculty_map = {
             "maschinenbau": "M",
             "elektrotechnik": "E",
-            "informatik": "IM",
+            "informatik": "I",
             "bauingenieurwesen": "B",
             "architektur": "A",
             "betriebswirtschaft": "BW",

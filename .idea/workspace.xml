@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="04f4b8a2-456f-45b9-9732-19c54d0d9e76" name="Changes" comment="ldap test">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="04f4b8a2-456f-45b9-9732-19c54d0d9e76" name="Changes" comment="ldap test fix" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -96,7 +94,7 @@
       <workItem from="1764697480083" duration="6229000" />
       <workItem from="1766523677457" duration="517000" />
       <workItem from="1770801432971" duration="1278000" />
-      <workItem from="1770802791096" duration="3706000" />
+      <workItem from="1770802791096" duration="4079000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
@@ -154,7 +152,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770807292203</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="ldap test fix">
+      <option name="closed" value="true" />
+      <created>1770807817588</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1770807817588</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -177,7 +183,8 @@
     <MESSAGE value="removed ouput path" />
     <MESSAGE value="readme update" />
     <MESSAGE value="ldap test" />
-    <option name="LAST_COMMIT_MESSAGE" value="ldap test" />
+    <MESSAGE value="ldap test fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="ldap test fix" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REARRANGE_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
