@@ -1,4 +1,4 @@
-"""Service für PDF-Verarbeitung mit pypdf."""
+"""Service fÃ¼r PDF-Verarbeitung mit pypdf."""
 import io
 import tempfile
 from pathlib import Path
@@ -17,7 +17,7 @@ logger = get_logger("pdf_service")
 
 
 class PdfService:
-    """Service für PDF-Verarbeitung."""
+    """Service fÃ¼r PDF-Verarbeitung."""
     
     def get_page_count(self, pdf_path: Path) -> Tuple[Optional[int], bool]:
         """
@@ -31,10 +31,10 @@ class PdfService:
         """
         try:
             reader = PdfReader(pdf_path)
-            
-            # Passwortschutz prüfen
+
+            # Passwortschutz prÃ¼fen
             if reader.is_encrypted:
-                logger.warning(f"PDF ist passwortgeschützt: {pdf_path}")
+                logger.warning(f"PDF ist passwortgeschÃ¼tzt: {pdf_path}")
                 return None, True
             
             page_count = len(reader.pages)
@@ -47,9 +47,9 @@ class PdfService:
     
     def _render_page_thumbnail(self, pdf_path: Path, page_index: int = 0) -> Optional[str]:
         """
-        Rendert eine einzelne PDF-Seite als Bild-Datei (PNG) für die Thumbnail-Vorschau.
+        Rendert eine einzelne PDF-Seite als Bild-Datei (PNG) fÃ¼r die Thumbnail-Vorschau.
         
-        Nutzt pypdf um die Seite als eigenständiges PDF zu extrahieren,
+        Nutzt pypdf um die Seite als eigenstÃ¤ndiges PDF zu extrahieren,
         dann pymupdf (fitz) zum Rendern als Bild. Fallback: None.
         
         Args:
@@ -57,7 +57,7 @@ class PdfService:
             page_index: Seitenindex (0 = erste Seite)
             
         Returns:
-            Pfad zur temporären PNG-Datei oder None
+            Pfad zur temporÃ¤ren PNG-Datei oder None
         """
         try:
             import fitz  # PyMuPDF
@@ -68,21 +68,24 @@ class PdfService:
                 return None
             
             page = doc[page_index]
-            
-            # Render mit 1.5x Zoom für gute Qualität bei Thumbnail-Größe
+
+            # Render mit 1.5x Zoom fÃ¼r gute QualitÃ¤t bei Thumbnail-GrÃ¶ÃŸe
             mat = fitz.Matrix(1.5, 1.5)
             pix = page.get_pixmap(matrix=mat)
             
             # Temporäre PNG-Datei erstellen
+            # Windows: Datei muss geschlossen sein bevor pix.save() schreibt
             tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            pix.save(tmp.name)
-            
+            tmp_path = tmp.name
+            tmp.close()
+
+            pix.save(tmp_path)
             doc.close()
-            logger.debug(f"Thumbnail erstellt: {tmp.name}")
-            return tmp.name
+            logger.debug(f"Thumbnail erstellt: {tmp_path}")
+            return tmp_path
             
         except ImportError:
-            logger.debug("PyMuPDF (fitz) nicht verfügbar – Thumbnail wird übersprungen")
+            logger.debug("PyMuPDF (fitz) nicht verfÃ¼gbar â€“ Thumbnail wird Ã¼bersprungen")
             return None
         except Exception as e:
             logger.warning(f"Thumbnail-Rendering fehlgeschlagen: {e}")
@@ -94,12 +97,12 @@ class PdfService:
         output_path: Path,
     ) -> bool:
         """
-        Erstellt ein Deckblatt für einen Auftrag.
-        Enthält eine Thumbnail-Vorschau der ersten Dokumentseite.
+        Erstellt ein Deckblatt fÃ¼r einen Auftrag.
+        EnthÃ¤lt eine Thumbnail-Vorschau der ersten Dokumentseite.
         
         Args:
             order: Auftrags-Objekt
-            output_path: Pfad für das Deckblatt
+            output_path: Pfad fÃ¼r das Deckblatt
             
         Returns:
             True bei Erfolg
@@ -109,6 +112,8 @@ class PdfService:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
             # Thumbnail der ersten Seite rendern
+            if order.filepath and order.filepath.exists():
+                thumbnail_path = self._render_page_thumbnail(order.filepath)
             if order.filepath and order.filepath.exists():
                thumbnail_path = self._render_page_thumbnail(order.filepath)
             
@@ -145,7 +150,7 @@ class PdfService:
             if order.user:
                 draw_field("RZ-Kennung:", order.user.username)
                 draw_field("Name:", order.user.full_name)
-                draw_field("Fakultät:", order.user.faculty)
+                draw_field("FakultÃ¤t:", order.user.faculty)
                 y -= 6
             
             # --- PDF-Informationen ---
@@ -155,8 +160,8 @@ class PdfService:
             # --- Preisberechnung ---
             if order.price_calculation:
                 calc = order.price_calculation
-                
-                color_text = "Farbe" if calc.color_mode.value == "color" else "Schwarz-Weiß"
+
+                color_text = "Farbe" if calc.color_mode.value == "color" else "Schwarz-WeiÃŸ"
                 draw_field("Druck:", f"{color_text} ({calc.pages_price_formatted})")
                 
                 if calc.binding_type.value == "none":
@@ -164,7 +169,7 @@ class PdfService:
                 elif calc.binding_type.value == "folder":
                     binding_text = f"Schnellhefter ({calc.binding_price_formatted})"
                 else:
-                    size_label = f" – {calc.binding_size_mm} mm" if calc.binding_size_mm else ""
+                    size_label = f" â€“ {calc.binding_size_mm} mm" if calc.binding_size_mm else ""
                     binding_text = f"Ringbindung ({calc.binding_price_formatted}){size_label}"
                 
                 draw_field("Bindung:", binding_text)
@@ -178,7 +183,7 @@ class PdfService:
                 y -= line_height
                 
                 c.setFont("Helvetica", 10)
-                c.drawString(label_x, y, "Nach Abzug 1 € Anzahlung:")
+                c.drawString(label_x, y, "Nach Abzug 1 â‚¬ Anzahlung:")
                 c.setFont("Helvetica-Bold", 11)
                 c.drawString(value_x, y, calc.price_after_deposit_formatted)
                 y -= line_height
@@ -191,7 +196,7 @@ class PdfService:
                 c.drawString(label_x, y, "ACHTUNG: Dateiname nicht korrekt!")
                 y -= line_height
                 c.setFont("Helvetica", 9)
-                c.drawString(label_x, y, "Bitte nächstes Mal richtig benennen:")
+                c.drawString(label_x, y, "Bitte nÃ¤chstes Mal richtig benennen:")
                 y -= line_height
                 c.drawString(label_x, y, "RZ-Kennung_sw/farbig_mb/ob/sh_001.pdf")
                 c.setFillColorRGB(0, 0, 0)
@@ -199,14 +204,14 @@ class PdfService:
             # --- Thumbnail-Vorschau der ersten Seite ---
             if thumbnail_path:
                 try:
-                    # Vorschau-Bereich: untere Hälfte der Seite, zentriert
+                    # Vorschau-Bereich: untere HÃ¤lfte der Seite, zentriert
                     preview_label_y = y - 20
                     c.setFont("Helvetica-Bold", 10)
                     c.setFillColorRGB(0.3, 0.3, 0.3)
                     c.drawString(label_x, preview_label_y, "Vorschau erste Seite:")
                     c.setFillColorRGB(0, 0, 0)
-                    
-                    # Bildgröße berechnen – max 200pt breit, max verfügbare Höhe
+
+                    # BildgrÃ¶ÃŸe berechnen â€“ max 200pt breit, max verfÃ¼gbare HÃ¶he
                     img = ImageReader(thumbnail_path)
                     img_w, img_h = img.getSize()
                     
@@ -234,12 +239,12 @@ class PdfService:
                     )
                     
                 except Exception as e:
-                    logger.warning(f"Thumbnail konnte nicht ins Deckblatt eingefügt werden: {e}")
+                    logger.warning(f"Thumbnail konnte nicht ins Deckblatt eingefÃ¼gt werden: {e}")
             
             # --- Footer ---
             c.setFillColorRGB(0, 0, 0)
             c.setFont("Helvetica", 8)
-            c.drawString(50, 40, "Fachschaft Maschinenbau – Hochschule Regensburg")
+            c.drawString(50, 40, "Fachschaft Maschinenbau â€“ Hochschule Regensburg")
             c.drawRightString(width - 50, 40, f"Auftrag #{order.order_id}")
             
             c.save()
@@ -251,7 +256,7 @@ class PdfService:
             logger.error(f"Fehler beim Erstellen des Deckblatts: {e}")
             return False
         finally:
-            # Temporäre Thumbnail-Datei aufräumen
+            # TemporÃ¤re Thumbnail-Datei aufrÃ¤umen
             if thumbnail_path:
                 try:
                     Path(thumbnail_path).unlink(missing_ok=True)
@@ -266,13 +271,13 @@ class PdfService:
         add_empty_page: bool = False,
     ) -> bool:
         """
-        Fügt Deckblatt und Dokument zusammen.
+        FÃ¼gt Deckblatt und Dokument zusammen.
         
         Args:
             coversheet_path: Pfad zum Deckblatt
             document_path: Pfad zum Dokument
-            output_path: Pfad für die Ausgabedatei
-            add_empty_page: Leere Seite zwischen Deckblatt und Dokument einfügen
+            output_path: Pfad fÃ¼r die Ausgabedatei
+            add_empty_page: Leere Seite zwischen Deckblatt und Dokument einfÃ¼gen
             
         Returns:
             True bei Erfolg
@@ -281,8 +286,8 @@ class PdfService:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
             writer = PdfWriter()
-            
-            # Deckblatt hinzufügen
+
+            # Deckblatt hinzufÃ¼gen
             coversheet_reader = PdfReader(coversheet_path)
             for page in coversheet_reader.pages:
                 writer.add_page(page)
@@ -290,8 +295,8 @@ class PdfService:
             # Optional: Leere Seite
             if add_empty_page:
                 writer.add_blank_page(width=A4[0], height=A4[1])
-            
-            # Dokument hinzufügen
+
+            # Dokument hinzufÃ¼gen
             document_reader = PdfReader(document_path)
             for page in document_reader.pages:
                 writer.add_page(page)
@@ -299,10 +304,10 @@ class PdfService:
             # Speichern
             with open(output_path, "wb") as f:
                 writer.write(f)
-            
-            logger.info(f"PDFs zusammengefügt: {output_path}")
+
+            logger.info(f"PDFs zusammengefÃ¼gt: {output_path}")
             return True
             
         except Exception as e:
-            logger.error(f"Fehler beim Zusammenfügen der PDFs: {e}")
+            logger.error(f"Fehler beim ZusammenfÃ¼gen der PDFs: {e}")
             return False
