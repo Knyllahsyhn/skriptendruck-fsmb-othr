@@ -288,7 +288,7 @@ class UserService:
         faculty_map = {
             "maschinenbau": "M",
             "elektrotechnik": "E",
-            "informatik": "I",
+            "informatik": "IM",
             "bauingenieurwesen": "B",
             "architektur": "A",
             "betriebswirtschaft": "BW",
