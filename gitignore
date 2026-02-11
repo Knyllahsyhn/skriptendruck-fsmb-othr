@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Poetry
+poetry.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Verschlüsselte Credentials
+.credentials.enc
+.credentials.key
+
+# Data files (nur Beispieldaten committen)
+data/users_fallback.csv
+data/blacklist.txt
+
+# Output
+output/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+
+# PDF temporary files
+*.pdf.tmp

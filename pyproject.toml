@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "skriptendruck"
 version = "2.3.0"
-description = "Modernisiertes Skriptendruckprogramm für die Fachschaft"
+description = "Modernisiertes Skriptendruckprogramm fÃ¼r die Fachschaft"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [{include = "skriptendruck", from = "src"}]
@@ -13,16 +13,18 @@ pydantic = "^2.9"
 pydantic-settings = "^2.6"
 # PDF processing
 pypdf = "^5.1"
-reportlab = "^4.2"  # Für Deckblatterstellung
-PyMuPDF = "^1.24"   # Für Thumbnail-Rendering der ersten Seite
+reportlab = "^4.2"  # FÃ¼r Deckblatterstellung
+PyMuPDF = "^1.24"   # FÃ¼r Thumbnail-Rendering der ersten Seite
 # LDAP (Windows-kompatibel!)
 ldap3 = "^2.9"
+# Verschlüsselte Credentials
+cryptography = "^43.0"
 # Database
 sqlalchemy = "^2.0"
-alembic = "^1.13"  # Für DB-Migrationen
+alembic = "^1.13"  # FÃ¼r DB-Migrationen
 # Excel
 openpyxl = "^3.1"
-xlsxwriter = "^3.2"  # Für Excel-Export
+xlsxwriter = "^3.2"  # FÃ¼r Excel-Export
 # CLI
 typer = {extras = ["all"], version = "^0.12"}
 rich = "^13.9"

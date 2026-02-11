@@ -29,7 +29,7 @@ logger = get_logger("cli")
 def process(
     orders_dir: Optional[Path] = typer.Option(
         None, "--orders-dir", "-i",
-        help="Verzeichnis mit Aufträgen (Standard: 01_Auftraege)"
+        help="Verzeichnis mit AuftrÃ¤gen (Standard: 01_Auftraege)"
     ),
     sequential: bool = typer.Option(
         False, "--sequential",
@@ -45,10 +45,10 @@ def process(
     ),
 ) -> None:
     """
-    Verarbeitet Druckaufträge.
+    Verarbeitet DruckauftrÃ¤ge.
 
     Liest PDF-Dateien aus dem Auftragsverzeichnis, validiert Benutzer,
-    berechnet Preise, erstellt Deckblätter und organisiert die Ausgabe
+    berechnet Preise, erstellt DeckblÃ¤tter und organisiert die Ausgabe
     in die Ordnerstruktur (02_Druckfertig, 04_Fehler, etc.).
     """
     # Logging einrichten (MUSS vor allem anderen kommen)
@@ -64,7 +64,7 @@ def process(
     orders_dir = orders_dir or organizer.get_input_dir()
 
     console.print(f"\n[bold blue]Skriptendruck - Verarbeitung[/bold blue]")
-    console.print(f"Aufträge:     {orders_dir}")
+    console.print(f"AuftrÃ¤ge:     {orders_dir}")
     console.print(f"Druckfertig:  {organizer.base_path / organizer.DIR_PRINT}")
     console.print(f"Originale:    {organizer.get_originals_dir()}")
     console.print()
@@ -76,15 +76,15 @@ def process(
         TextColumn("[progress.description]{task.description}"),
         console=console,
     ) as progress:
-        task = progress.add_task("Suche nach Aufträgen...", total=None)
+        task = progress.add_task("Suche nach AuftrÃ¤gen...", total=None)
         orders = pipeline.discover_orders(orders_dir)
         progress.update(task, completed=True)
 
     if not orders:
-        console.print("[yellow]Keine Aufträge gefunden.[/yellow]")
+        console.print("[yellow]Keine AuftrÃ¤ge gefunden.[/yellow]")
         return
 
-    console.print(f"[green]Gefunden: {len(orders)} Aufträge[/green]\n")
+    console.print(f"[green]Gefunden: {len(orders)} AuftrÃ¤ge[/green]\n")
 
     with Progress(
         SpinnerColumn(),
@@ -92,7 +92,7 @@ def process(
         console=console,
     ) as progress:
         task = progress.add_task(
-            f"Verarbeite {len(orders)} Aufträge...",
+            f"Verarbeite {len(orders)} AuftrÃ¤ge...",
             total=len(orders)
         )
         processed_orders = pipeline.process_orders(
@@ -108,7 +108,7 @@ def process(
 def init(
     base_path: Optional[Path] = typer.Option(
         None, "--base-path", "-p",
-        help="Basispfad für die Ordnerstruktur"
+        help="Basispfad fÃ¼r die Ordnerstruktur"
     ),
 ) -> None:
     """
@@ -171,10 +171,10 @@ def init(
 @app.command()
 def stats(
     orders_dir: Optional[Path] = typer.Option(
-        None, "--orders-dir", "-i", help="Verzeichnis mit Aufträgen"
+        None, "--orders-dir", "-i", help="Verzeichnis mit AuftrÃ¤gen"
     ),
 ) -> None:
-    """Zeigt Statistiken Ã¼ber vorhandene Aufträge."""
+    """Zeigt Statistiken Ã¼ber vorhandene AuftrÃ¤ge."""
     setup_logging(level=settings.log_level)
     organizer = FileOrganizer()
     orders_dir = orders_dir or organizer.get_input_dir()
@@ -183,13 +183,13 @@ def stats(
     orders = pipeline.discover_orders(orders_dir)
 
     if not orders:
-        console.print("[yellow]Keine Aufträge gefunden.[/yellow]")
+        console.print("[yellow]Keine AuftrÃ¤ge gefunden.[/yellow]")
         return
 
     table = Table(title=f"Statistik: {orders_dir}")
     table.add_column("Metrik", style="cyan")
     table.add_column("Wert", style="green")
-    table.add_row("Anzahl Aufträge", str(len(orders)))
+    table.add_row("Anzahl AuftrÃ¤ge", str(len(orders)))
     total_size = sum(o.file_size_bytes for o in orders)
     table.add_row("GesamtgrÃ¶ÃŸe", f"{total_size / 1024 / 1024:.2f} MB")
     console.print()
@@ -229,7 +229,7 @@ def export_excel(
             else:
                 console.print(f"[red]âœ—[/red] Fehler beim Export der Auftragsliste")
         else:
-            console.print("[yellow]Keine Aufträge im Zeitraum gefunden[/yellow]")
+            console.print("[yellow]Keine AuftrÃ¤ge im Zeitraum gefunden[/yellow]")
         progress.update(task, completed=True)
 
         task = progress.add_task("Exportiere Abrechnungsliste...", total=None)
@@ -258,7 +258,7 @@ def db_stats() -> None:
     table = Table()
     table.add_column("Metrik", style="cyan")
     table.add_column("Wert", style="green")
-    table.add_row("Gesamt Aufträge", str(db_stats_data["total_orders"]))
+    table.add_row("Gesamt AuftrÃ¤ge", str(db_stats_data["total_orders"]))
     table.add_row("Erfolgreich", str(db_stats_data["successful_orders"]))
     table.add_row("Fehler", str(db_stats_data["error_orders"]))
     table.add_row("Gesamtumsatz", f"{db_stats_data['total_revenue']:.2f} â‚¬")
@@ -355,7 +355,7 @@ def credentials(
 
 
 def _display_summary(orders: list, organizer: FileOrganizer) -> None:
-    """Zeigt Zusammenfassung der verarbeiteten Aufträge."""
+    """Zeigt Zusammenfassung der verarbeiteten AuftrÃ¤ge."""
     console.print("\n[bold blue]Zusammenfassung[/bold blue]\n")
 
     total = len(orders)
@@ -369,7 +369,7 @@ def _display_summary(orders: list, organizer: FileOrganizer) -> None:
     console.print()
 
     if success > 0:
-        success_table = Table(title="Verarbeitete Aufträge")
+        success_table = Table(title="Verarbeitete AuftrÃ¤ge")
         success_table.add_column("ID", style="cyan", width=6)
         success_table.add_column("Dateiname")
         success_table.add_column("Benutzer")
