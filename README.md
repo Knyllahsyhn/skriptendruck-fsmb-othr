@@ -241,10 +241,10 @@ skriptendruck/                     ← Programmverzeichnis
 │   ├── blacklist.txt              ← Gesperrte Benutzer
 │   └── users_fallback.csv         ← CSV-Fallback für User-Lookup
 ├── tests/                         ← Unit Tests
-│   ├── test_filename_parser.py
-│   ├── test_pricing_service.py
-│   ├── test_file_organizer.py
-│   └── ...
+│   ├── test_file_organizer.py     ← Tests FileOrganizer
+│   ├── test_filename_parser.py    ← Tests Dateinamen-Parsing
+│   ├── test_ldap.py               ← Tests LDAP-Integration
+│   └── test_pricing_service.py    ← Tests Preisberechnung
 └── src/skriptendruck/
     ├── config/
     │   ├── settings.py            ← Pydantic Settings (.env)
