@@ -1,16 +1,14 @@
 # Skriptendruck v2.3
 
-Modernisiertes Druckauftrags-Verwaltungssystem für die Fachschaft Maschinenbau, OTH Regensburg.
+Modernisiertes Druckauftrags-Verwaltungssystem für die Fachschaft Maschinenbau, Hochschule Regensburg.
 Python-Neuentwicklung des ursprünglichen MATLAB-Systems mit LDAP-Integration, automatischer Preisberechnung,
 Deckblatterstellung und Ordnerverwaltung.
 
 ## Features
 
 - **LDAP-Integration**: Benutzervalidierung über das Active Directory der HS Regensburg (ldap3, Windows-kompatibel)
-- **Verschlüsselte Credentials**: LDAP-Passwort wird verschlüsselt gespeichert (Fernet/AES), kein Klartext auf dem
-  Netzlaufwerk
-- **Automatische Ordnerverwaltung**: Aufträge werden in `02_Druckfertig/sw/` bzw. `farbig/` sortiert, Fehler nach Grund
-  in `04_Fehler/`, Originale gesichert
+- **Verschlüsselte Credentials**: LDAP-Passwort wird verschlüsselt gespeichert (Fernet/AES), kein Klartext auf dem Netzlaufwerk
+- **Automatische Ordnerverwaltung**: Aufträge werden in `02_Druckfertig/sw/` bzw. `farbig/` sortiert, Fehler nach Grund in `04_Fehler/`, Originale gesichert
 - **Ringbindungsgrößen**: 13-stufige Tabelle (6,9 mm bis 38 mm) mit automatischer Auswahl nach Seitenzahl
 - **Deckblatt mit Vorschau**: Generiertes Deckblatt mit Thumbnail der ersten Dokumentseite (PyMuPDF)
 - **SQLite-Datenbank**: Persistente Speicherung aller Aufträge und Abrechnungen
@@ -28,8 +26,7 @@ Deckblatterstellung und Ordnerverwaltung.
 
 ### Variante A: Setup-Skript (empfohlen)
 
-`Skriptendruck_Setup.bat` doppelklicken. Das Skript prüft Python/Poetry, installiert Abhängigkeiten, erstellt die
-Ordnerstruktur und richtet optional die LDAP-Credentials ein.
+`Skriptendruck_Setup.bat` doppelklicken. Das Skript prüft Python/Poetry, installiert Abhängigkeiten, erstellt die Ordnerstruktur und richtet optional die LDAP-Credentials ein.
 
 ### Variante B: Manuell
 
@@ -118,8 +115,7 @@ poetry run skriptendruck credentials check
 poetry run skriptendruck credentials delete
 ```
 
-Die Credentials werden in `.credentials.enc` (verschlüsselt, AES via Fernet) und `.credentials.key` (Schlüssel)
-gespeichert. Beide Dateien sind in `.gitignore`. Falls in der `.env` ein `LDAP_BIND_PASSWORD` steht, hat dieses Vorrang.
+Die Credentials werden in `.credentials.enc` (verschlüsselt, AES via Fernet) und `.credentials.key` (Schlüssel) gespeichert. Beide Dateien sind in `.gitignore`. Falls in der `.env` ein `LDAP_BIND_PASSWORD` steht, hat dieses Vorrang.
 
 ## Ordnerstruktur
 
@@ -145,8 +141,7 @@ BASE_PATH/
 └── 05_Manuell/                    ← Für manuelle Aufträge
 ```
 
-Das Programmverzeichnis (mit `pyproject.toml`, `.env`, etc.) ist unabhängig von `BASE_PATH` und kann an einem anderen
-Ort liegen.
+Das Programmverzeichnis (mit `pyproject.toml`, `.env`, etc.) ist unabhängig von `BASE_PATH` und kann an einem anderen Ort liegen.
 
 ## Dateinamen-Format
 
@@ -166,16 +161,16 @@ Viele Schreibvarianten werden erkannt (`schwarzweiß`, `farbe`, `mitBindung`, `o
 
 ## CLI-Befehle
 
-| Befehl               | Beschreibung                                          |
-|----------------------|-------------------------------------------------------|
-| `process`            | Aufträge verarbeiten (Hauptbefehl)                    |
-| `init`               | Ordnerstruktur und Beispieldaten erstellen            |
-| `stats`              | Dateisystem-Statistiken anzeigen                      |
-| `db-stats`           | Datenbank-Statistiken anzeigen                        |
-| `export-excel`       | Auftrags- und Abrechnungslisten als Excel exportieren |
-| `credentials setup`  | LDAP-Credentials verschlüsselt speichern              |
-| `credentials check`  | Credentials prüfen                                    |
-| `credentials delete` | Credentials löschen                                   |
+| Befehl | Beschreibung |
+|--------|-------------|
+| `process` | Aufträge verarbeiten (Hauptbefehl) |
+| `init` | Ordnerstruktur und Beispieldaten erstellen |
+| `stats` | Dateisystem-Statistiken anzeigen |
+| `db-stats` | Datenbank-Statistiken anzeigen |
+| `export-excel` | Auftrags- und Abrechnungslisten als Excel exportieren |
+| `credentials setup` | LDAP-Credentials verschlüsselt speichern |
+| `credentials check` | Credentials prüfen |
+| `credentials delete` | Credentials löschen |
 
 ### Verarbeitungs-Pipeline
 
@@ -245,6 +240,11 @@ skriptendruck/                     ← Programmverzeichnis
 │   ├── binding_sizes.json         ← Ringbindungsgrößen
 │   ├── blacklist.txt              ← Gesperrte Benutzer
 │   └── users_fallback.csv         ← CSV-Fallback für User-Lookup
+├── tests/                         ← Unit Tests
+│   ├── test_filename_parser.py
+│   ├── test_pricing_service.py
+│   ├── test_file_organizer.py
+│   └── ...
 └── src/skriptendruck/
     ├── config/
     │   ├── settings.py            ← Pydantic Settings (.env)
