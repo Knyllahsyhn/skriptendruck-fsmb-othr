@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Skriptendruck - Druckaufträge verarbeiten
@@ -52,5 +52,5 @@ if ($exitCode -eq 0) {
 }
 
 Write-Host ""
-Write-Host "Fenster schliesst sich in 10 Sekunden..." -ForegroundColor DarkGray
+Write-Host "Fenster schliesst sich in 10 Sekunden" -ForegroundColor DarkGray
 Start-Sleep -Seconds 10

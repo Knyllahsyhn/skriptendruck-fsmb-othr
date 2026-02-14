@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Skriptendruck - Ersteinrichtung
@@ -74,7 +74,7 @@ Write-Host "  OK" -ForegroundColor Green
 
 # --- 4. .env und Ordnerstruktur ---
 $step++
-Write-Host "[$step/$totalSteps] Initialisiere Konfiguration und Ordnerstruktur..." -ForegroundColor Cyan
+Write-Host "[$step/$totalSteps] Initialisiere Konfiguration und Ordnerstruktur" -ForegroundColor Cyan
 
 if (-not (Test-Path ".env")) {
     if (Test-Path "_env") {

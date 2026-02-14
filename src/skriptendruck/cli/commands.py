@@ -52,10 +52,10 @@ def process(
     in die Ordnerstruktur (02_Druckfertig, 04_Fehler, etc.).
     """
     # Logging einrichten (MUSS vor allem anderen kommen)
-    log_level = "DEBUG" if verbose else settings.log_level
+    log_level = "DEBUG" if not verbose else settings.log_level
     setup_logging(level=log_level, log_file=settings.log_file)
 
-    settings.parallel_processing = not sequential
+    settings.parallel_processing =sequential
 
     # FileOrganizer initialisieren
     organizer = FileOrganizer()
@@ -97,7 +97,7 @@ def process(
         )
         processed_orders = pipeline.process_orders(
             orders,
-            organize_files=not no_organize,
+            organize_files=no_organize,
         )
         progress.update(task, completed=len(orders))
 
