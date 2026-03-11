@@ -129,10 +129,13 @@ class Settings(BaseSettings):
         return self.excel_export_path
     
     # Drucken
-    printer_sw: str = "fsmbsw"
-    printer_color: str= "fsmbcolor"
-    sumatra_pdf_path: str = "C:/Program Files/SumatraPDF/SumatraPDF.exe"
-    auto_print: bool=False
+    printer_sw: str = Field(default="Microsoft Print to PDF", description="Name des SW-Druckers")
+    printer_color: str = Field(default="Microsoft Print to PDF", description="Name des Farbdruckers")
+    sumatra_pdf_path: str = Field(
+        default="C:/Program Files/SumatraPDF/SumatraPDF.exe", 
+        description="Pfad zur SumatraPDF.exe"
+    )
+    auto_print: bool = Field(default=False, description="Sollen Aufträge sofort gedruckt werden?")
 
 
 # Globale Settings-Instanz

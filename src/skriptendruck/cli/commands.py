@@ -12,8 +12,9 @@ from ..config import get_logger, settings, setup_logging
 from ..database.service import DatabaseService
 from ..models import OrderStatus
 from ..processing.pipeline import OrderPipeline
-from ..services import FileOrganizer, PricingService
+from ..services import FileOrganizer, PricingService, PrintingService
 from ..services.excel_service import ExcelExportService
+
 
 app = typer.Typer(
     name="skriptendruck",
@@ -43,6 +44,10 @@ def process(
         False, "--verbose", "-v",
         help="AusfÃ¼hrliche Ausgabe"
     ),
+    do_print: bool = typer.Option(
+        None, "--print", "-p",
+        help="Aufträge sofort drucken (überschreibt AUTO_PRINT)"
+    ),
 ) -> None:
     """
     Verarbeitet Druckaufträge.
@@ -55,7 +60,9 @@ def process(
     log_level = "DEBUG" if not verbose else settings.log_level
     setup_logging(level=log_level, log_file=settings.log_file)
 
-    settings.parallel_processing =sequential
+    settings.parallel_processing=sequential
+    if do_print is not None:
+        settings.auto_print = do_print
 
     # FileOrganizer initialisieren
     organizer = FileOrganizer()
@@ -67,6 +74,8 @@ def process(
     console.print(f"Aufträge:     {orders_dir}")
     console.print(f"Druckfertig:  {organizer.base_path / organizer.DIR_PRINT}")
     console.print(f"Originale:    {organizer.get_originals_dir()}")
+    if settings.auto_print:
+        console.print(f"[yellow]DRUCK-MODUS AKTIVIERT[/yellow] (Drucker: {settings.printer_sw} / {settings.printer_color})")
     console.print()
 
     pipeline = OrderPipeline(file_organizer=organizer)
