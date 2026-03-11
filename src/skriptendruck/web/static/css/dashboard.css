@@ -1,73 +1,556 @@
-/* Skriptendruck Dashboard – Custom CSS */
+/* ============================================================
+   Skriptendruck Dashboard – FSMB Regensburg e.V.
+   Industrial Engineering Design with Dark/Light Mode
+   ============================================================ */
 
-/* Login Page */
+/* ---- CSS Custom Properties (Light Mode – Default) ---- */
+:root,
+[data-bs-theme="light"] {
+    /* Primary: Industrial Steel/Slate */
+    --fsmb-primary: #2d3436;
+    --fsmb-primary-rgb: 45, 52, 54;
+    --fsmb-primary-hover: #1e2526;
+
+    /* Accent: Engineering Orange */
+    --fsmb-accent: #e17055;
+    --fsmb-accent-rgb: 225, 112, 85;
+    --fsmb-accent-hover: #d35400;
+
+    /* Secondary: Industrial Blue-Grey */
+    --fsmb-secondary: #636e72;
+    --fsmb-secondary-rgb: 99, 110, 114;
+
+    /* Surface colors */
+    --fsmb-bg: #f5f6fa;
+    --fsmb-bg-secondary: #ffffff;
+    --fsmb-surface: #ffffff;
+    --fsmb-surface-hover: #f8f9fa;
+
+    /* Text */
+    --fsmb-text: #2d3436;
+    --fsmb-text-secondary: #636e72;
+    --fsmb-text-muted: #b2bec3;
+
+    /* Borders */
+    --fsmb-border: #dfe6e9;
+    --fsmb-border-light: #e9ecef;
+
+    /* Navbar */
+    --fsmb-navbar-bg: #2d3436;
+    --fsmb-navbar-text: #ffffff;
+    --fsmb-navbar-accent: #e17055;
+
+    /* Cards */
+    --fsmb-card-bg: #ffffff;
+    --fsmb-card-border: rgba(0,0,0,0.06);
+    --fsmb-card-shadow: 0 2px 12px rgba(0,0,0,0.06);
+
+    /* Table */
+    --fsmb-table-header-bg: #f1f2f6;
+    --fsmb-table-stripe: rgba(0,0,0,0.02);
+
+    /* Footer */
+    --fsmb-footer-bg: #2d3436;
+    --fsmb-footer-text: #b2bec3;
+
+    /* Login */
+    --fsmb-login-gradient-start: #2d3436;
+    --fsmb-login-gradient-end: #636e72;
+
+    /* Misc */
+    --fsmb-scrollbar-thumb: #b2bec3;
+    --fsmb-scrollbar-track: #dfe6e9;
+    --fsmb-input-bg: #ffffff;
+    --fsmb-input-border: #dfe6e9;
+}
+
+/* ---- Dark Mode ---- */
+[data-bs-theme="dark"] {
+    --fsmb-primary: #e17055;
+    --fsmb-primary-rgb: 225, 112, 85;
+    --fsmb-primary-hover: #d35400;
+
+    --fsmb-accent: #e17055;
+    --fsmb-accent-rgb: 225, 112, 85;
+    --fsmb-accent-hover: #f0825e;
+
+    --fsmb-secondary: #a4b0be;
+    --fsmb-secondary-rgb: 164, 176, 190;
+
+    --fsmb-bg: #1a1d23;
+    --fsmb-bg-secondary: #21252b;
+    --fsmb-surface: #282c34;
+    --fsmb-surface-hover: #2f343d;
+
+    --fsmb-text: #e4e6eb;
+    --fsmb-text-secondary: #a4b0be;
+    --fsmb-text-muted: #6c757d;
+
+    --fsmb-border: #3a3f47;
+    --fsmb-border-light: #2f343d;
+
+    --fsmb-navbar-bg: #21252b;
+    --fsmb-navbar-text: #e4e6eb;
+    --fsmb-navbar-accent: #e17055;
+
+    --fsmb-card-bg: #282c34;
+    --fsmb-card-border: rgba(255,255,255,0.06);
+    --fsmb-card-shadow: 0 2px 12px rgba(0,0,0,0.3);
+
+    --fsmb-table-header-bg: #21252b;
+    --fsmb-table-stripe: rgba(255,255,255,0.02);
+
+    --fsmb-footer-bg: #21252b;
+    --fsmb-footer-text: #6c757d;
+
+    --fsmb-login-gradient-start: #1a1d23;
+    --fsmb-login-gradient-end: #2d3436;
+
+    --fsmb-scrollbar-thumb: #4a4f57;
+    --fsmb-scrollbar-track: #21252b;
+    --fsmb-input-bg: #21252b;
+    --fsmb-input-border: #3a3f47;
+}
+
+
+/* ============================================================
+   Global
+   ============================================================ */
+body {
+    background-color: var(--fsmb-bg);
+    color: var(--fsmb-text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--fsmb-scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--fsmb-scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fsmb-accent); }
+
+
+/* ============================================================
+   Navbar
+   ============================================================ */
+.navbar-fsmb {
+    background-color: var(--fsmb-navbar-bg) !important;
+    border-bottom: 3px solid var(--fsmb-accent);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+
+.navbar-fsmb .navbar-brand {
+    font-size: 1.15rem;
+    letter-spacing: 0.5px;
+    color: var(--fsmb-navbar-text) !important;
+}
+
+.navbar-fsmb .navbar-brand img {
+    filter: brightness(0) invert(1);
+    transition: transform 0.2s ease;
+}
+
+.navbar-fsmb .navbar-brand:hover img {
+    transform: scale(1.05);
+}
+
+.navbar-fsmb .nav-link {
+    color: rgba(255,255,255,0.8) !important;
+    font-weight: 500;
+    transition: color 0.2s ease;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+
+.navbar-fsmb .nav-link:hover,
+.navbar-fsmb .nav-link.active {
+    color: #ffffff !important;
+}
+
+.navbar-fsmb .nav-link.active {
+    border-bottom: 2px solid var(--fsmb-accent);
+}
+
+.navbar-fsmb .nav-link.text-accent-logout {
+    color: var(--fsmb-accent) !important;
+}
+
+.navbar-fsmb .nav-link.text-accent-logout:hover {
+    color: var(--fsmb-accent-hover) !important;
+}
+
+
+/* ============================================================
+   Dark Mode Toggle
+   ============================================================ */
+.theme-toggle {
+    background: none;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.8);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+    padding: 0;
+}
+
+.theme-toggle:hover {
+    border-color: var(--fsmb-accent);
+    color: var(--fsmb-accent);
+    transform: rotate(20deg);
+}
+
+
+/* ============================================================
+   Login Page
+   ============================================================ */
 .login-wrapper {
-    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 50%, #084298 100%);
+    background: linear-gradient(135deg, var(--fsmb-login-gradient-start) 0%, var(--fsmb-login-gradient-end) 50%, var(--fsmb-accent) 100%);
+    min-height: 100vh;
 }
 
 .login-card {
     border-radius: 1rem;
+    background-color: var(--fsmb-card-bg);
+    border: 1px solid var(--fsmb-card-border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
 
-/* Navbar */
-.navbar-brand {
-    font-size: 1.2rem;
-    letter-spacing: 0.5px;
+.login-card .card-body {
+    color: var(--fsmb-text);
 }
 
-/* Cards */
+.login-logo {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+}
+
+/* Invert logo in dark mode for visibility */
+[data-bs-theme="dark"] .login-logo {
+    filter: brightness(0) invert(1);
+}
+
+.login-card h3 {
+    color: var(--fsmb-text);
+}
+
+.login-card .text-muted {
+    color: var(--fsmb-text-secondary) !important;
+}
+
+.login-card .form-label {
+    color: var(--fsmb-text);
+}
+
+.login-card .form-control {
+    background-color: var(--fsmb-input-bg);
+    border-color: var(--fsmb-input-border);
+    color: var(--fsmb-text);
+}
+
+.login-card .form-control:focus {
+    border-color: var(--fsmb-accent);
+    box-shadow: 0 0 0 0.2rem rgba(var(--fsmb-accent-rgb), 0.25);
+}
+
+.login-card .btn-fsmb {
+    background-color: var(--fsmb-accent);
+    border-color: var(--fsmb-accent);
+    color: #fff;
+}
+
+.login-card .btn-fsmb:hover {
+    background-color: var(--fsmb-accent-hover);
+    border-color: var(--fsmb-accent-hover);
+}
+
+
+/* ============================================================
+   Cards
+   ============================================================ */
 .card {
+    background-color: var(--fsmb-card-bg);
+    border: 1px solid var(--fsmb-card-border);
     border-radius: 0.75rem;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: var(--fsmb-card-shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease;
 }
 
 .card:hover {
     transform: translateY(-1px);
 }
 
-/* Tables */
+.card-header {
+    background-color: var(--fsmb-surface) !important;
+    border-bottom: 1px solid var(--fsmb-border) !important;
+    color: var(--fsmb-text);
+}
+
+.card-header h5 {
+    color: var(--fsmb-text);
+}
+
+/* Stat cards accent border */
+.stat-card {
+    border-left: 4px solid var(--fsmb-accent) !important;
+}
+
+
+/* ============================================================
+   Tables
+   ============================================================ */
+.table {
+    color: var(--fsmb-text);
+}
+
 .table > thead > tr > th {
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: #6c757d;
-    border-bottom: 2px solid #dee2e6;
+    letter-spacing: 0.5px;
+    color: var(--fsmb-text-secondary);
+    background-color: var(--fsmb-table-header-bg);
+    border-bottom: 2px solid var(--fsmb-border);
 }
 
 .table > tbody > tr > td {
     vertical-align: middle;
     font-size: 0.9rem;
+    border-bottom-color: var(--fsmb-border-light);
+    color: var(--fsmb-text);
 }
 
-/* Badges */
+.table > tbody > tr:hover > td {
+    background-color: var(--fsmb-surface-hover);
+}
+
+.table-light {
+    --bs-table-bg: var(--fsmb-table-header-bg);
+    --bs-table-color: var(--fsmb-text-secondary);
+}
+
+/* Override Bootstrap table-hover for dark mode */
+[data-bs-theme="dark"] .table-hover > tbody > tr:hover > * {
+    --bs-table-hover-bg: var(--fsmb-surface-hover);
+    --bs-table-hover-color: var(--fsmb-text);
+}
+
+
+/* ============================================================
+   Badges
+   ============================================================ */
 .badge {
     font-weight: 500;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.3px;
 }
 
-/* Progress bars */
+
+/* ============================================================
+   Buttons – FSMB accent variants
+   ============================================================ */
+.btn-fsmb {
+    background-color: var(--fsmb-accent);
+    border-color: var(--fsmb-accent);
+    color: #ffffff;
+}
+
+.btn-fsmb:hover,
+.btn-fsmb:focus {
+    background-color: var(--fsmb-accent-hover);
+    border-color: var(--fsmb-accent-hover);
+    color: #ffffff;
+}
+
+.btn-outline-fsmb {
+    color: var(--fsmb-accent);
+    border-color: var(--fsmb-accent);
+    background: transparent;
+}
+
+.btn-outline-fsmb:hover {
+    background-color: var(--fsmb-accent);
+    border-color: var(--fsmb-accent);
+    color: #ffffff;
+}
+
+
+/* ============================================================
+   Forms
+   ============================================================ */
+.form-control,
+.form-select {
+    background-color: var(--fsmb-input-bg);
+    border-color: var(--fsmb-input-border);
+    color: var(--fsmb-text);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--fsmb-accent);
+    box-shadow: 0 0 0 0.2rem rgba(var(--fsmb-accent-rgb), 0.2);
+    background-color: var(--fsmb-input-bg);
+    color: var(--fsmb-text);
+}
+
+
+/* ============================================================
+   Progress bars
+   ============================================================ */
 .progress {
     border-radius: 1rem;
+    background-color: var(--fsmb-border);
 }
 
-/* Responsive tweaks */
-@media (max-width: 768px) {
-    .table-responsive {
-        font-size: 0.85rem;
-    }
 
-    .card-body {
-        padding: 1rem;
-    }
+/* ============================================================
+   Footer
+   ============================================================ */
+.footer-fsmb {
+    background-color: var(--fsmb-footer-bg);
+    border-top: 3px solid var(--fsmb-accent);
+    color: var(--fsmb-footer-text);
+    padding: 1.5rem 0;
+    margin-top: 3rem;
 }
 
-/* Toast animations */
+.footer-fsmb a {
+    color: var(--fsmb-accent);
+    text-decoration: none;
+}
+
+.footer-fsmb a:hover {
+    color: var(--fsmb-accent-hover);
+}
+
+.footer-fsmb .footer-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.7;
+}
+
+
+/* ============================================================
+   Toast
+   ============================================================ */
 .toast {
     border-radius: 0.5rem;
 }
 
-/* Action buttons */
+
+/* ============================================================
+   Action buttons
+   ============================================================ */
 .btn-sm {
     padding: 0.25rem 0.5rem;
+}
+
+
+/* ============================================================
+   Text utility overrides for theme
+   ============================================================ */
+.text-muted {
+    color: var(--fsmb-text-muted) !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--fsmb-text);
+}
+
+/* Accent text helper */
+.text-fsmb-accent {
+    color: var(--fsmb-accent) !important;
+}
+
+
+/* ============================================================
+   Dropdown menus (Dark mode fix)
+   ============================================================ */
+[data-bs-theme="dark"] .dropdown-menu {
+    background-color: var(--fsmb-surface);
+    border-color: var(--fsmb-border);
+}
+
+[data-bs-theme="dark"] .dropdown-item {
+    color: var(--fsmb-text);
+}
+
+[data-bs-theme="dark"] .dropdown-item:hover {
+    background-color: var(--fsmb-surface-hover);
+    color: var(--fsmb-accent);
+}
+
+
+/* ============================================================
+   Page-link / Pagination (Dark mode fix)
+   ============================================================ */
+[data-bs-theme="dark"] .page-link {
+    background-color: var(--fsmb-surface);
+    border-color: var(--fsmb-border);
+    color: var(--fsmb-text);
+}
+
+[data-bs-theme="dark"] .page-item.active .page-link {
+    background-color: var(--fsmb-accent);
+    border-color: var(--fsmb-accent);
+    color: #fff;
+}
+
+[data-bs-theme="dark"] .page-item.disabled .page-link {
+    background-color: var(--fsmb-bg-secondary);
+    border-color: var(--fsmb-border);
+    color: var(--fsmb-text-muted);
+}
+
+
+/* ============================================================
+   Alert (Dark mode fix)
+   ============================================================ */
+[data-bs-theme="dark"] .alert-danger {
+    background-color: rgba(220, 53, 69, 0.15);
+    border-color: rgba(220, 53, 69, 0.3);
+    color: #f5a5ae;
+}
+
+
+/* ============================================================
+   Badge in navbar
+   ============================================================ */
+.navbar-fsmb .badge {
+    background-color: var(--fsmb-accent) !important;
+    color: #fff !important;
+}
+
+
+/* ============================================================
+   Responsive tweaks
+   ============================================================ */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+    .card-body {
+        padding: 1rem;
+    }
+    .login-logo {
+        width: 90px;
+        height: 90px;
+    }
+}
+
+
+/* ============================================================
+   Smooth transitions for theme switch
+   ============================================================ */
+.card, .navbar-fsmb, .footer-fsmb,
+.form-control, .form-select, .table,
+.btn, .badge, .alert, .page-link {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }

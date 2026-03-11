@@ -3,16 +3,22 @@
 {% block title %}Anmelden{% endblock %}
 
 {% block content %}
-<div class="login-wrapper d-flex align-items-center justify-content-center min-vh-100 bg-light">
-    <div class="login-card card shadow-lg border-0" style="max-width: 420px; width: 100%;">
+<div class="login-wrapper d-flex align-items-center justify-content-center min-vh-100">
+    <div class="login-card card border-0" style="max-width: 440px; width: 100%;">
         <div class="card-body p-5">
             <!-- Logo / Header -->
             <div class="text-center mb-4">
-                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 72px; height: 72px;">
-                    <i class="bi bi-printer-fill fs-1"></i>
-                </div>
-                <h3 class="fw-bold text-dark">Skriptendruck</h3>
-                <p class="text-muted small">Fachschaft Maschinenbau – OTH Regensburg</p>
+                <img src="/static/img/fsmb_logo.png" alt="FSMB Regensburg" class="login-logo mb-3">
+                <h3 class="fw-bold">Skriptendruck</h3>
+                <p class="text-muted small mb-1">Fachschaft Maschinenbau – OTH Regensburg</p>
+                <p class="text-muted small">Willkommen im Druckauftragssystem der FSMB</p>
+            </div>
+
+            <!-- Dark Mode Toggle on login page -->
+            <div class="text-center mb-3">
+                <button class="btn btn-sm btn-outline-secondary" id="loginThemeToggle" title="Dark/Light Mode">
+                    <i class="bi bi-moon-fill me-1" id="loginThemeIcon"></i> Design wechseln
+                </button>
             </div>
 
             {% if error %}
@@ -37,7 +43,7 @@
                     <input type="password" class="form-control form-control-lg" id="password" name="password"
                            placeholder="Passwort" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg w-100">
+                <button type="submit" class="btn btn-fsmb btn-lg w-100">
                     <i class="bi bi-box-arrow-in-right me-2"></i> Anmelden
                 </button>
             </form>
@@ -47,6 +53,14 @@
                     <i class="bi bi-shield-lock me-1"></i>
                     Zugang nur für Mitglieder der Gruppen<br>
                     <strong>Vorstand</strong>, <strong>IT</strong> oder <strong>Skriptendruck</strong>
+                </small>
+            </div>
+
+            <hr class="my-3" style="border-color: var(--fsmb-border);">
+
+            <div class="text-center">
+                <small class="text-muted opacity-75">
+                    &copy; 2026 FSMB Regensburg e.V.
                 </small>
             </div>
         </div>
