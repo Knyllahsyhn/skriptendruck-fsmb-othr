@@ -41,7 +41,7 @@ try {
 Write-Host "Starte Verarbeitung..." -ForegroundColor Cyan
 Write-Host ""
 
-poetry run skriptendruck process
+.venv\Scripts\python.exe -m skriptendruck process
 $exitCode = $LASTEXITCODE
 
 Write-Host ""
