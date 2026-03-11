@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 import logging
 from ..config import settings
+from ..models import ColorMode
 
 logger = logging.getLogger("printing")
 
@@ -13,7 +14,7 @@ class PrintingService:
             return False
 
         # Drucker wählen basierend auf Farbmodus
-        printer = settings.printer_color if order.color_mode.is_color else settings.printer_sw
+        printer = settings.printer_color if order.color_mode == ColorMode.COlOR else settings.printer_sw
         
         return self.send_to_printer(order.merged_pdf_path, printer)
 

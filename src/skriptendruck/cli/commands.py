@@ -42,7 +42,7 @@ def process(
     ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v",
-        help="AusfÃ¼hrliche Ausgabe"
+        help="Ausfhrliche Ausgabe"
     ),
     do_print: bool = typer.Option(
         False, "--print", "-p",
