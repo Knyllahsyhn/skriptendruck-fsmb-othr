@@ -65,17 +65,11 @@
                 </div>
                 <div class="card-body">
                     {% if status_counts %}
-                    {% set status_labels = {
-                        'pending': ('Ausstehend', 'warning'),
-                        'validated': ('Validiert', 'info'),
-                        'processed': ('Verarbeitet', 'success'),
-                        'printed': ('Gedruckt', 'primary'),
-                    } %}
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <tbody>
                                 {% for status_key, count in status_counts.items() %}
-                                {% set label, cls = status_labels.get(status_key, (status_key, 'danger' if status_key.startswith('error') else 'secondary')) %}
+                                {% set label, cls = get_status_badge(status_key) %}
                                 <tr>
                                     <td><span class="badge bg-{{ cls }}">{{ label }}</span></td>
                                     <td class="text-end fw-bold">{{ count }}</td>

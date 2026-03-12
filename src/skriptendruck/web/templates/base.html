@@ -28,7 +28,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark navbar-fsmb sticky-top">
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="/">
-                <img src="/static/img/fsmb_logo.png" alt="FSMB Logo" width="32" height="32" class="me-2">
+                <img src="/static/img/fsmb_logo.png" alt="FSMB Logo" width="32" height="32" class="me-2 fsmb-logo-adaptive">
                 <span class="fw-bold">Skriptendruck</span>
                 <span class="d-none d-md-inline ms-2 opacity-75 small">FSMB Regensburg</span>
             </a>
@@ -63,6 +63,14 @@
                     </li>
                 </ul>
                 <div class="navbar-nav d-flex align-items-center">
+                    <!-- Printing Toggle -->
+                    <div class="printing-toggle-wrapper me-3 d-flex align-items-center" title="Drucken ein-/ausschalten">
+                        <i class="bi bi-printer me-1 text-light opacity-75"></i>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="printingToggle">
+                            <label class="form-check-label small text-light opacity-75 d-none d-lg-inline" for="printingToggle">Drucken</label>
+                        </div>
+                    </div>
                     <!-- Dark Mode Toggle -->
                     <button class="theme-toggle me-3" id="themeToggle" title="Dark/Light Mode umschalten" aria-label="Design-Modus wechseln">
                         <i class="bi bi-moon-fill" id="themeIcon"></i>
@@ -94,7 +102,7 @@
         <div class="container-fluid">
             <div class="row align-items-center">
                 <div class="col-md-4 text-center text-md-start mb-2 mb-md-0">
-                    <img src="/static/img/fsmb_logo.png" alt="FSMB" class="footer-logo me-2">
+                    <img src="/static/img/fsmb_logo.png" alt="FSMB" class="footer-logo me-2 fsmb-logo-adaptive">
                     <span class="small">FSMB Regensburg e.V.</span>
                 </div>
                 <div class="col-md-4 text-center mb-2 mb-md-0">

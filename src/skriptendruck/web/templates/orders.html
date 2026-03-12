@@ -115,21 +115,8 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% set status_map = {
-                                    'pending': ('Ausstehend', 'warning'),
-                                    'validated': ('Validiert', 'info'),
-                                    'processed': ('Verarbeitet', 'success'),
-                                    'printed': ('Gedruckt', 'primary'),
-                                    'error_user_not_found': ('User fehlt', 'danger'),
-                                    'error_user_blocked': ('Blockiert', 'danger'),
-                                    'error_too_few_pages': ('Zu wenig S.', 'danger'),
-                                    'error_too_many_pages': ('Zu viele S.', 'danger'),
-                                    'error_password_protected': ('Passwort', 'danger'),
-                                    'error_invalid_filename': ('Dateiname', 'danger'),
-                                    'error_unknown': ('Unbekannt', 'danger'),
-                                } %}
-                                {% set label, cls = status_map.get(order.status, (order.status, 'secondary')) %}
-                                <span class="badge bg-{{ cls }}" title="{{ order.error_message or '' }}">
+                                {% set label, cls = get_status_badge(order.status) %}
+                                <span class="badge bg-{{ cls }}{% if cls == 'warning' %} text-dark{% endif %}" title="{{ order.error_message or '' }}">
                                     {{ label }}
                                 </span>
                             </td>

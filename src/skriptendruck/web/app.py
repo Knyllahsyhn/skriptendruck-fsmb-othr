@@ -104,6 +104,33 @@ def create_app() -> FastAPI:
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     app.state.templates = templates
 
+    # Jinja2 globale Helper-Funktion für Status-Badges
+    _STATUS_BADGE_MAP = {
+        "pending": ("Ausstehend", "warning"),
+        "processing": ("Verarbeitung…", "info"),
+        "validated": ("Validiert", "info"),
+        "processed": ("Verarbeitet", "success"),
+        "printed": ("Gedruckt", "primary"),
+        "error_user_not_found": ("User fehlt", "danger"),
+        "error_user_blocked": ("Blockiert", "danger"),
+        "error_too_few_pages": ("Zu wenig S.", "danger"),
+        "error_too_many_pages": ("Zu viele S.", "danger"),
+        "error_password_protected": ("Passwort", "danger"),
+        "error_invalid_filename": ("Dateiname", "danger"),
+        "error_unknown": ("Fehler", "danger"),
+    }
+
+    def _get_status_badge(status: str) -> tuple:
+        """Gibt (label, css_class) für einen Auftrags-Status zurück."""
+        if status in _STATUS_BADGE_MAP:
+            return _STATUS_BADGE_MAP[status]
+        # Fallback: error_* → danger, sonst secondary
+        if status and status.startswith("error"):
+            return (status, "danger")
+        return (status or "Unbekannt", "secondary")
+
+    templates.env.globals["get_status_badge"] = _get_status_badge
+
     # Router einbinden
     app.include_router(auth_router)
     app.include_router(dashboard_router)

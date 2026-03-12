@@ -81,7 +81,7 @@ def _try_print_order(order) -> bool:
 # Pipeline-Verarbeitung (wird in einem Thread ausgeführt)
 # ---------------------------------------------------------------------------
 
-def _run_pipeline_for_order(order_record: OrderRecord) -> dict:
+def _run_pipeline_for_order(order_record: OrderRecord, enable_printing: bool = None) -> dict:
     """Führt die komplette Pipeline für einen einzelnen Auftrag aus.
 
     Liest den Dateipfad aus dem DB-Record, verarbeitet die PDF
@@ -170,9 +170,12 @@ def _run_pipeline_for_order(order_record: OrderRecord) -> dict:
             except Exception as exc:
                 logger.warning(f"Billing-Record Fehler: {exc}")
 
-        # ----- Drucken (optional, konfigurierbar via ENABLE_PRINTING) -----
+        # ----- Drucken (optional, Dashboard-Toggle überschreibt .env) -----
         printed = False
-        if order.status == OrderStatus.PROCESSED and settings.enable_printing:
+        # enable_printing=None → Fallback auf settings.enable_printing
+        # enable_printing=True/False → überschreibt .env-Einstellung
+        should_print = enable_printing if enable_printing is not None else settings.enable_printing
+        if order.status == OrderStatus.PROCESSED and should_print:
             printed = _try_print_order(order)
 
         if order.is_error:
@@ -184,7 +187,7 @@ def _run_pipeline_for_order(order_record: OrderRecord) -> dict:
         )
         if printed:
             msg += " – Druckauftrag gesendet"
-        elif settings.enable_printing:
+        elif should_print:
             msg += " – Druck fehlgeschlagen (Auftrag trotzdem abgeschlossen)"
 
         return {"success": True, "message": msg}
@@ -220,10 +223,23 @@ async def start_order(request: Request, order_id: int):
     Führt die vollständige Verarbeitung aus:
     Dateiname parsen → User validieren → PDF analysieren →
     Preis berechnen → Deckblatt → Merge → Dateien organisieren.
+
+    Akzeptiert einen optionalen JSON-Body mit ``enable_printing`` (bool).
+    Wenn gesetzt, überschreibt dieser Wert die .env-Einstellung
+    ``ENABLE_PRINTING``. Wird vom Dashboard-Printing-Toggle gesendet.
     """
     user, error = _require_auth(request)
     if error:
         return error
+
+    # Optionalen Body auslesen (enable_printing)
+    enable_printing = None
+    try:
+        body = await request.json()
+        if isinstance(body, dict) and "enable_printing" in body:
+            enable_printing = bool(body["enable_printing"])
+    except Exception:
+        pass  # Kein JSON-Body → Fallback auf .env
 
     try:
         db = _get_db()
@@ -259,8 +275,12 @@ async def start_order(request: Request, order_id: int):
             )
 
         # Pipeline in einem Thread ausführen (blockiert nicht den Event-Loop)
+        import functools
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, _run_pipeline_for_order, order_snapshot)
+        result = await loop.run_in_executor(
+            None,
+            functools.partial(_run_pipeline_for_order, order_snapshot, enable_printing=enable_printing),
+        )
 
         if result["success"]:
             logger.info(f"Auftrag #{order_id} von {user['username']} verarbeitet: {result['message']}")
@@ -420,10 +440,21 @@ async def start_all_pending_orders(request: Request):
 
     Gibt für jeden Auftrag ein Ergebnis zurück (success/fail).
     Wenn ein Auftrag fehlschlägt, werden die anderen trotzdem verarbeitet.
+
+    Akzeptiert einen optionalen JSON-Body mit ``enable_printing`` (bool).
     """
     user, error = _require_auth(request)
     if error:
         return error
+
+    # Optionalen Body auslesen (enable_printing)
+    enable_printing = None
+    try:
+        body = await request.json()
+        if isinstance(body, dict) and "enable_printing" in body:
+            enable_printing = bool(body["enable_printing"])
+    except Exception:
+        pass
 
     try:
         db = _get_db()
@@ -453,10 +484,14 @@ async def start_all_pending_orders(request: Request):
             session.commit()
 
         # Process each order sequentially in a thread
+        import functools
         loop = asyncio.get_running_loop()
         results = []
         for snap in snapshots:
-            result = await loop.run_in_executor(None, _run_pipeline_for_order, snap)
+            result = await loop.run_in_executor(
+                None,
+                functools.partial(_run_pipeline_for_order, snap, enable_printing=enable_printing),
+            )
             results.append({
                 "order_id": snap.order_id,
                 "filename": snap.filename,

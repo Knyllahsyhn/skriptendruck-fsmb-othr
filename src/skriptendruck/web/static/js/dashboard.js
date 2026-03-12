@@ -49,7 +49,35 @@ function bindThemeToggle(buttonId, iconId) {
 document.addEventListener('DOMContentLoaded', function () {
     var theme = localStorage.getItem('fsmb-theme') || 'light';
     updateThemeIcons(theme);
+
+    // ---- Printing Toggle ----
+    initPrintingToggle();
 });
+
+
+/* ============================================================
+   Printing Toggle (localStorage)
+   ============================================================ */
+function initPrintingToggle() {
+    var toggle = document.getElementById('printingToggle');
+    if (!toggle) return;
+
+    // Load saved state (default: false = off)
+    var saved = localStorage.getItem('fsmb-printing-enabled');
+    toggle.checked = saved === 'true';
+
+    toggle.addEventListener('change', function () {
+        localStorage.setItem('fsmb-printing-enabled', toggle.checked ? 'true' : 'false');
+        showToast(
+            toggle.checked ? 'Drucken aktiviert' : 'Drucken deaktiviert',
+            toggle.checked ? 'success' : 'info'
+        );
+    });
+}
+
+function isPrintingEnabled() {
+    return localStorage.getItem('fsmb-printing-enabled') === 'true';
+}
 
 
 /* ============================================================
@@ -132,7 +160,11 @@ async function startOrder(orderId, btn) {
     setButtonLoading(btn, true);
 
     try {
-        var res = await fetch('/api/orders/' + orderId + '/start', { method: 'POST' });
+        var res = await fetch('/api/orders/' + orderId + '/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enable_printing: isPrintingEnabled() }),
+        });
         var data = await res.json();
 
         if (res.ok && data.success) {
@@ -214,7 +246,11 @@ async function startAllOrders(btn) {
     startBtns.forEach(function (b) { b.disabled = true; });
 
     try {
-        var res = await fetch('/api/orders/start-all', { method: 'POST' });
+        var res = await fetch('/api/orders/start-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enable_printing: isPrintingEnabled() }),
+        });
         var data = await res.json();
 
         if (res.ok && data.success) {
