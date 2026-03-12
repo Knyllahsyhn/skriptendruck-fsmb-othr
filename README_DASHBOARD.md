@@ -205,36 +205,52 @@ src/skriptendruck/web/
 | `GET` | `/api/statistics` | Statistiken (JSON) |
 | `GET` | `/api/docs` | Swagger API-Dokumentation |
 
-## PaperCut-Integration (Headless Druck)
+## Windows-Service (Produktion)
 
-Das Dashboard unterstützt **PaperCut NG** für headless Druckaufträge über das `pc-print` CLI-Tool.
-Damit werden alle Aufträge über einen lokalen Service-Account gedruckt und über ein
-**Shared Account** in PaperCut abgerechnet – ohne Popup oder interaktives Fenster.
+Für den Produktiveinsatz sollte das Dashboard als **Windows-Service** laufen. Damit:
+- Startet das Dashboard automatisch beim Server-Boot
+- Läuft unter einem dedizierten Service-Account (`skriptendruck-service`)
+- PaperCut ordnet alle Druckaufträge automatisch diesem User zu
 
-### Vorteile gegenüber SumatraPDF
+### Installation
 
-| | SumatraPDF | PaperCut (pc-print) |
-|---|---|---|
-| Abrechnung | ❌ Keine | ✅ Über Shared Account |
-| Headless | ⚠️ Silent-Print | ✅ Vollständig headless |
-| Logging | ❌ Nur lokal | ✅ PaperCut-Protokoll |
-| User-Tracking | ❌ Nein | ✅ Service-Account |
+```powershell
+# Als Administrator ausführen
+.\install_service.ps1
+```
+
+Siehe **[docs/WINDOWS_SERVICE_SETUP.md](docs/WINDOWS_SERVICE_SETUP.md)** für die vollständige Anleitung.
+
+## PaperCut-Integration
+
+Das Dashboard integriert sich nahtlos mit **PaperCut NG**. Da der Service unter dem Account
+`skriptendruck-service` läuft, werden alle Druckaufträge automatisch diesem User zugeordnet.
+
+### Funktionsweise
+
+```
+Dashboard (Windows-Service)
+    │  läuft unter: skriptendruck-service
+    ▼
+SumatraPDF Silent-Print
+    │
+    ▼
+PaperCut erkennt User automatisch
+    │
+    ▼
+Abrechnung über Shared Account
+```
+
+### Vorteile
+
+- **Kein pc-print.exe erforderlich** – SumatraPDF reicht aus
+- **Automatische User-Zuordnung** – PaperCut erkennt den Service-Account
+- **Einfaches Tracking** – Alle Skriptendruck-Aufträge unter einem User
+- **Shared Account** – Zentrale Kostenabrechnung
 
 ### Einrichtung
 
 Für die vollständige Einrichtungsanleitung siehe: **[docs/PAPERCUT_SETUP.md](docs/PAPERCUT_SETUP.md)**
-
-### Kurzübersicht Konfiguration
-
-```env
-# .env – PaperCut aktivieren
-PC_PRINT_PATH=C:\Program Files\PaperCut NG\client\win\pc-print.exe
-PAPERCUT_USER=skriptendruck-service
-PAPERCUT_ACCOUNT=Skriptendruck
-```
-
-> **Fallback:** Wenn `PC_PRINT_PATH` nicht gesetzt oder die Datei nicht existiert,
-> wird automatisch SumatraPDF verwendet. Eine Warnung erscheint im Log.
 
 ## Technologie-Stack
 
@@ -243,4 +259,5 @@ PAPERCUT_ACCOUNT=Skriptendruck
 - **Auth**: LDAP3 (Active Directory) + Starlette Session Middleware
 - **Datenbank**: SQLite + SQLAlchemy (bestehende Integration)
 - **Export**: XlsxWriter (bestehender Excel-Service)
-- **Druck**: PaperCut NG (pc-print) mit SumatraPDF-Fallback
+- **Druck**: SumatraPDF Silent-Print (PaperCut ordnet User automatisch zu)
+- **Service**: NSSM (Non-Sucking Service Manager) für Windows-Service

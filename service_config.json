@@ -1,0 +1,31 @@
+{
+  "service": {
+    "name": "SkriptendruckDashboard",
+    "display_name": "Skriptendruck Dashboard",
+    "description": "Web-Dashboard für das Skriptendruck-System der FSMB Regensburg",
+    "account": ".\\skriptendruck-service"
+  },
+  "application": {
+    "module": "skriptendruck.web.app:app",
+    "host": "0.0.0.0",
+    "port": 8000,
+    "workers": 1,
+    "reload": false
+  },
+  "logging": {
+    "directory": "logs",
+    "stdout_file": "service_stdout.log",
+    "stderr_file": "service_stderr.log",
+    "rotate_bytes": 10485760,
+    "rotate_files": true
+  },
+  "recovery": {
+    "restart_on_failure": true,
+    "restart_delay_ms": 5000,
+    "startup_type": "auto"
+  },
+  "nssm": {
+    "download_url": "https://nssm.cc/release/nssm-2.24.zip",
+    "install_path": "tools/nssm"
+  }
+}

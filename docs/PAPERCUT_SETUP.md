@@ -1,21 +1,46 @@
 # PaperCut NG Integration – Setup-Anleitung
 
 Diese Anleitung beschreibt, wie PaperCut NG für das Skriptendruck-Dashboard eingerichtet wird,
-damit alle Druckaufträge **headless** (ohne Popup) über einen lokalen Service-Account gedruckt
-und über das **Shared Account „Skriptendruck"** in PaperCut abgerechnet werden.
+damit alle Druckaufträge automatisch dem Service-Account `skriptendruck-service` zugeordnet werden.
+
+## Konzept
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Windows Server                                    │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │           Windows-Service: SkriptendruckDashboard              │ │
+│  │           läuft unter: .\skriptendruck-service                 │ │
+│  │  ┌──────────────────────────────────────────────────────────┐  │ │
+│  │  │  SumatraPDF sendet Druckauftrag                          │  │ │
+│  │  │       │                                                  │  │ │
+│  │  │       ▼                                                  │  │ │
+│  │  │  PaperCut erkennt User "skriptendruck-service"           │  │ │
+│  │  │  und verbucht automatisch auf Shared Account             │  │ │
+│  │  └──────────────────────────────────────────────────────────┘  │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Vorteile dieses Ansatzes:**
+- Kein `pc-print.exe` erforderlich
+- Automatische User-Zuordnung durch PaperCut
+- Einfaches Tracking aller Skriptendruck-Aufträge
+- SumatraPDF für zuverlässiges Silent-Printing
 
 ## Voraussetzungen
 
 - PaperCut NG ist auf dem Server installiert
 - Admin-Zugriff auf die PaperCut-Verwaltungsoberfläche
-- Das CLI-Tool `pc-print` ist verfügbar (wird mit PaperCut mitgeliefert)
 - Lokaler Administrator-Zugriff auf den Windows-Server
+- Dashboard läuft als Windows-Service (siehe [WINDOWS_SERVICE_SETUP.md](WINDOWS_SERVICE_SETUP.md))
 
 ---
 
 ## Schritt 1: Lokalen Windows-User anlegen
 
-> **Hinweis:** Da kein Domain-Controller verfügbar ist, wird ein **lokaler** Windows-User angelegt.
+> **Hinweis:** Dieser Schritt wird vom `install_service.ps1` Skript geprüft.
+> Falls der User noch nicht existiert, muss er vorab angelegt werden.
 
 ### Via PowerShell (als Administrator)
 
@@ -27,7 +52,7 @@ New-LocalUser -Name "skriptendruck-service" `
               -Description "Service-Account für Skriptendruck-Druckaufträge" `
               -PasswordNeverExpires
 
-# Optional: User zur Gruppe "Users" hinzufügen
+# User zur Gruppe "Users" hinzufügen
 Add-LocalGroupMember -Group "Users" -Member "skriptendruck-service"
 ```
 
@@ -64,7 +89,9 @@ Add-LocalGroupMember -Group "Users" -Member "skriptendruck-service"
 
 ---
 
-## Schritt 3: Shared Account „Skriptendruck" erstellen
+## Schritt 3: Shared Account „Skriptendruck" erstellen (optional)
+
+Wenn alle Druckkosten auf ein zentrales Konto verbucht werden sollen:
 
 1. In der PaperCut Admin-Oberfläche: **Konten** → **Shared Accounts**
 2. **Neues Shared Account erstellen**
@@ -85,100 +112,123 @@ Add-LocalGroupMember -Group "Users" -Member "skriptendruck-service"
 1. **Konten** → **Shared Accounts** → **Skriptendruck** anklicken
 2. Tab **Sicherheit** oder **Zugriff**
 3. `skriptendruck-service` als berechtigten Benutzer hinzufügen
-4. Alternativ: Unter **Benutzer** → `skriptendruck-service` → **Shared Accounts**:
-   - `Skriptendruck` als Standard-Konto zuweisen
+4. **Automatische Zuweisung konfigurieren:**
+   - Unter **Benutzer** → `skriptendruck-service` → **Shared Accounts**
+   - `Skriptendruck` als **Standard-Konto** für alle Druckaufträge zuweisen
+   - Option aktivieren: "Shared Account automatisch belasten"
 
 ---
 
-## Schritt 5: pc-print testen
+## Schritt 5: Windows-Service installieren
 
-Öffne eine **Eingabeaufforderung (CMD)** oder **PowerShell** auf dem Server:
+```powershell
+# Als Administrator ausführen
+.\install_service.ps1
+```
 
-```cmd
-# Pfad zu pc-print prüfen (Standard-Installationspfad)
-"C:\Program Files\PaperCut NG\client\win\pc-print.exe" --help
+Das Skript:
+1. Installiert NSSM (falls nicht vorhanden)
+2. Erstellt den Service "SkriptendruckDashboard"
+3. Konfiguriert den Service für den User `skriptendruck-service`
+4. Startet den Service
+
+Siehe [WINDOWS_SERVICE_SETUP.md](WINDOWS_SERVICE_SETUP.md) für Details.
+
+---
+
+## Schritt 6: Funktionstest
+
+### Service-Status prüfen
+
+```powershell
+Get-Service -Name SkriptendruckDashboard
 ```
 
 ### Testdruck ausführen
 
-```cmd
-"C:\Program Files\PaperCut NG\client\win\pc-print.exe" ^
-    --user=skriptendruck-service ^
-    --account=Skriptendruck ^
-    --printer="DRUCKERNAME" ^
-    "C:\Pfad\zur\Testdatei.pdf"
-```
+1. Dashboard im Browser öffnen: `http://localhost:8000`
+2. Einen Test-Auftrag verarbeiten
+3. "Drucken" aktivieren und Auftrag starten
 
-> **Tipp:** Den genauen Druckernamen findest du unter **Systemsteuerung** → **Geräte und Drucker**
-> oder in PaperCut unter **Drucker**.
+### In PaperCut prüfen
 
-### Erwartetes Ergebnis
-
-- Der Druckauftrag wird an den Drucker gesendet
-- In PaperCut wird der Auftrag unter dem Shared Account **Skriptendruck** verbucht
-- Der Benutzer `skriptendruck-service` erscheint als Auftraggeber
-- **Kein Popup** oder interaktives Fenster
-
-### Fehlerbehebung
-
-| Problem | Lösung |
-|---|---|
-| `pc-print` nicht gefunden | Installationspfad prüfen, ggf. `PC_PRINT_PATH` in `.env` anpassen |
-| "User not found" | User in PaperCut registrieren (Schritt 2) |
-| "Account not found" | Shared Account Name prüfen (Groß-/Kleinschreibung beachten) |
-| "Access denied" | User dem Shared Account zuordnen (Schritt 4) |
-| Drucker nicht erreichbar | Druckername prüfen, Drucker-Status in PaperCut checken |
-
----
-
-## Schritt 6: Skriptendruck-Dashboard konfigurieren
-
-Ergänze folgende Variablen in der `.env`-Datei:
-
-```env
-# PaperCut Integration
-# --------------------
-# Pfad zur pc-print.exe (PaperCut Client CLI)
-PC_PRINT_PATH=C:\Program Files\PaperCut NG\client\win\pc-print.exe
-
-# PaperCut Benutzername (lokaler Windows-User)
-PAPERCUT_USER=skriptendruck-service
-
-# PaperCut Shared Account Name
-PAPERCUT_ACCOUNT=Skriptendruck
-```
-
-> **Fallback:** Wenn `PC_PRINT_PATH` nicht gesetzt oder die Datei nicht existiert,
-> fällt das System automatisch auf **SumatraPDF Silent Print** zurück.
-> Eine Warnung wird im Log ausgegeben.
+1. **Protokolle** → **Druckaufträge**
+2. Suche nach `skriptendruck-service`
+3. Verifizieren:
+   - User: `skriptendruck-service`
+   - Account: `Skriptendruck` (falls konfiguriert)
 
 ---
 
 ## Architektur-Übersicht
 
 ```
-Dashboard (Web-UI)
-    │
-    ▼
-PrintingService
-    │
-    ├── PC_PRINT_PATH gesetzt & Datei existiert?
-    │       │
-    │       ├── JA  → pc-print --user=... --account=... --printer=... file.pdf
-    │       │           └── Abrechnung über PaperCut Shared Account
-    │       │
-    │       └── NEIN → Fallback: SumatraPDF Silent Print
-    │                   └── Keine PaperCut-Abrechnung
-    │
-    ▼
-Drucker (physisch)
+                    ┌─────────────────────┐
+                    │    Web-Browser      │
+                    │    (Benutzer)       │
+                    └─────────┬───────────┘
+                              │ HTTP
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                Windows-Service: SkriptendruckDashboard          │
+│                User: .\skriptendruck-service                    │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                  FastAPI Dashboard                        │  │
+│  │                        │                                  │  │
+│  │                        ▼                                  │  │
+│  │              PrintingService                              │  │
+│  │                        │                                  │  │
+│  │                        ▼                                  │  │
+│  │   SumatraPDF -print-to "Drucker" -silent file.pdf         │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        PaperCut NG                              │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Erkennt Druckauftrag von: skriptendruck-service          │  │
+│  │  Verbucht auf Shared Account: Skriptendruck               │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────────┐
+                    │      Drucker        │
+                    └─────────────────────┘
 ```
+
+---
+
+## Troubleshooting
+
+| Problem | Lösung |
+|---|---|
+| User nicht in PaperCut sichtbar | PaperCut User-Sync prüfen, lokale User einbeziehen |
+| Druckauftrag wird nicht verbucht | Prüfen ob Service wirklich unter dem richtigen User läuft |
+| Falscher User in PaperCut | Service stoppen, User in NSSM prüfen, neu starten |
+| "Access denied" bei Drucker | Drucker-Berechtigungen für skriptendruck-service prüfen |
+| Shared Account wird nicht belastet | Auto-Zuweisung in PaperCut prüfen (Schritt 4) |
+
+### Service-User verifizieren
+
+```powershell
+# Welcher User führt den Service aus?
+Get-WmiObject Win32_Service -Filter "Name='SkriptendruckDashboard'" | 
+    Select-Object Name, StartName
+```
+
+### PaperCut-Logs prüfen
+
+In der PaperCut Admin-Oberfläche:
+- **Protokolle** → **Druckaufträge** → Nach User filtern
+- **Protokolle** → **Anwendungsprotokoll** → Fehler prüfen
 
 ---
 
 ## Sicherheitshinweise
 
-- Der `skriptendruck-service`-User sollte **nur** für Druckaufträge verwendet werden
+- Der `skriptendruck-service`-User sollte **nur** für den Dashboard-Service verwendet werden
 - Passwort sicher aufbewahren (z.B. im Windows Credential Manager)
 - Zugriff auf das Shared Account auf den Service-User beschränken
 - PaperCut-Logs regelmäßig prüfen (unter **Protokolle** in der Admin-Oberfläche)
@@ -188,6 +238,6 @@ Drucker (physisch)
 
 ## Weiterführende Dokumentation
 
+- [Windows-Service Setup](WINDOWS_SERVICE_SETUP.md)
 - [PaperCut NG Admin Guide](https://www.papercut.com/help/manuals/ng-mf/)
-- [pc-print CLI Reference](https://www.papercut.com/help/manuals/ng-mf/common/tools-pc-print/)
 - [Skriptendruck README](../README_DASHBOARD.md)

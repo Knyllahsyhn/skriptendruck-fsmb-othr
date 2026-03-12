@@ -151,26 +151,9 @@ class Settings(BaseSettings):
         description=(
             "Drucken im Web-Dashboard aktivieren. "
             "Wenn True, wird nach dem PDF-Merge automatisch an den "
-            "konfigurierten Drucker gesendet (SumatraPDF Silent-Print)."
+            "konfigurierten Drucker gesendet (SumatraPDF Silent-Print). "
+            "PaperCut ordnet die Aufträge automatisch dem Service-Account zu."
         ),
-    )
-    
-    # PaperCut Integration
-    pc_print_path: Optional[str] = Field(
-        default=None,
-        description=(
-            "Pfad zur pc-print.exe (PaperCut Client CLI). "
-            "Wenn gesetzt und die Datei existiert, wird pc-print statt "
-            "SumatraPDF für den Druck verwendet."
-        ),
-    )
-    papercut_user: Optional[str] = Field(
-        default=None,
-        description="PaperCut Benutzername (lokaler Windows Service-Account)",
-    )
-    papercut_account: Optional[str] = Field(
-        default=None,
-        description="PaperCut Shared Account Name für die Abrechnung",
     )
 
 
