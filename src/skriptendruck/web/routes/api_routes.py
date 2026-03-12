@@ -64,12 +64,13 @@ def _try_print_order(order) -> bool:
         success = printer.print_order(order)
         if success:
             logger.info(
-                f"Druckauftrag für Order #{order.order_id} erfolgreich gesendet"
+                f"Druckauftrag für Order #{order.order_id} erfolgreich gesendet "
+                f"(Backend: {printer.backend_name})"
             )
         else:
             logger.warning(
                 f"Druckauftrag für Order #{order.order_id} fehlgeschlagen "
-                f"(Drucker nicht erreichbar oder SumatraPDF nicht gefunden)"
+                f"(Backend: {printer.backend_name})"
             )
         return success
     except Exception as exc:

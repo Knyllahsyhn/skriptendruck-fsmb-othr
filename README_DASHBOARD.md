@@ -205,6 +205,37 @@ src/skriptendruck/web/
 | `GET` | `/api/statistics` | Statistiken (JSON) |
 | `GET` | `/api/docs` | Swagger API-Dokumentation |
 
+## PaperCut-Integration (Headless Druck)
+
+Das Dashboard unterstützt **PaperCut NG** für headless Druckaufträge über das `pc-print` CLI-Tool.
+Damit werden alle Aufträge über einen lokalen Service-Account gedruckt und über ein
+**Shared Account** in PaperCut abgerechnet – ohne Popup oder interaktives Fenster.
+
+### Vorteile gegenüber SumatraPDF
+
+| | SumatraPDF | PaperCut (pc-print) |
+|---|---|---|
+| Abrechnung | ❌ Keine | ✅ Über Shared Account |
+| Headless | ⚠️ Silent-Print | ✅ Vollständig headless |
+| Logging | ❌ Nur lokal | ✅ PaperCut-Protokoll |
+| User-Tracking | ❌ Nein | ✅ Service-Account |
+
+### Einrichtung
+
+Für die vollständige Einrichtungsanleitung siehe: **[docs/PAPERCUT_SETUP.md](docs/PAPERCUT_SETUP.md)**
+
+### Kurzübersicht Konfiguration
+
+```env
+# .env – PaperCut aktivieren
+PC_PRINT_PATH=C:\Program Files\PaperCut NG\client\win\pc-print.exe
+PAPERCUT_USER=skriptendruck-service
+PAPERCUT_ACCOUNT=Skriptendruck
+```
+
+> **Fallback:** Wenn `PC_PRINT_PATH` nicht gesetzt oder die Datei nicht existiert,
+> wird automatisch SumatraPDF verwendet. Eine Warnung erscheint im Log.
+
 ## Technologie-Stack
 
 - **Backend**: FastAPI + Uvicorn
@@ -212,3 +243,4 @@ src/skriptendruck/web/
 - **Auth**: LDAP3 (Active Directory) + Starlette Session Middleware
 - **Datenbank**: SQLite + SQLAlchemy (bestehende Integration)
 - **Export**: XlsxWriter (bestehender Excel-Service)
+- **Druck**: PaperCut NG (pc-print) mit SumatraPDF-Fallback
