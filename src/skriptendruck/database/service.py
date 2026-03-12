@@ -25,13 +25,30 @@ class DatabaseService:
     _instances: Dict[str, "DatabaseService"] = {}
     _lock = threading.Lock()
 
-    def __new__(cls, db_path: Optional[Path] = None) -> "DatabaseService":
+    @staticmethod
+    def _resolve_db_path(db_path: Optional[Path]) -> Path:
+        """
+        Ermittelt den absoluten Datenbankpfad.
+        
+        - Wenn db_path explizit angegeben wird, wird dieser verwendet
+        - Sonst wird settings.database_path verwendet (standardmäßig absolut)
+        - Bei relativem Pfad wird das Projekt-Root als Basis verwendet
+        """
+        from ..config.settings import PROJECT_ROOT
+        
         if db_path is None:
             db_path = settings.database_path
-            if not db_path.is_absolute():
-                db_path = settings.base_path / db_path
+        
+        # Sicherstellen, dass der Pfad absolut ist
+        if not db_path.is_absolute():
+            db_path = PROJECT_ROOT / db_path
+        
+        return db_path
 
-        key = str(db_path)
+    def __new__(cls, db_path: Optional[Path] = None) -> "DatabaseService":
+        resolved_path = cls._resolve_db_path(db_path)
+
+        key = str(resolved_path)
         with cls._lock:
             if key not in cls._instances:
                 instance = super().__new__(cls)
@@ -49,14 +66,13 @@ class DatabaseService:
         if getattr(self, "_initialized", False):
             return
 
-        if db_path is None:
-            db_path = settings.database_path
-            if not db_path.is_absolute():
-                db_path = settings.base_path / db_path
-
-        self.db_path = db_path
+        self.db_path = self._resolve_db_path(db_path)
+        
+        # Sicherstellen, dass das Verzeichnis existiert
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        
         self.engine = create_engine(
-            f"sqlite:///{db_path}",
+            f"sqlite:///{self.db_path}",
             echo=False,
             pool_pre_ping=True,
         )
@@ -64,7 +80,7 @@ class DatabaseService:
 
         # Tabellen erstellen falls nicht vorhanden – nur einmal
         Base.metadata.create_all(self.engine)
-        logger.info(f"Datenbank initialisiert: {db_path}")
+        logger.info(f"Datenbank initialisiert: {self.db_path}")
         self._initialized = True
     
     def save_order(self, order: Order) -> OrderRecord:

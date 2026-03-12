@@ -9,6 +9,9 @@ from typing import Optional
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Projekt-Root ermitteln (3 Ebenen über config/settings.py)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
 
 class Settings(BaseSettings):
     """Zentrale Konfiguration für das Skriptendruckprogramm."""
@@ -89,9 +92,11 @@ class Settings(BaseSettings):
     )
     
     # Datenbank
+    # Der Default-Pfad ist relativ zum Projekt-Root (data/skriptendruck.db)
+    # Dies funktioniert auch bei Windows-Services, wo das Working Directory variieren kann
     database_path: Path = Field(
-        default=Path("skriptendruck.db"),
-        description="Pfad zur SQLite-Datenbank"
+        default=PROJECT_ROOT / "data" / "skriptendruck.db",
+        description="Pfad zur SQLite-Datenbank (absoluter Pfad empfohlen)"
     )
     use_database: bool = Field(
         default=True,
