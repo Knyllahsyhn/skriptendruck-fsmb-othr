@@ -12,14 +12,16 @@ Der überwachte Pfad wird wie folgt bestimmt:
 ``BASE_PATH`` kann ein lokaler Pfad, ein gemapptes Netzlaufwerk
 (``Z:\\skriptendruck``) oder ein UNC-Pfad
 (``\\\\server\\share\\skriptendruck``) sein.
+
+Hinweis: Dieses Modul verwendet durchgängig pathlib.Path für Pfad-Operationen.
 """
 import asyncio
-import os
+import os  # nur für os.getenv
 import re
 import traceback
 from datetime import datetime
-from pathlib import Path, PureWindowsPath
-from typing import Optional, Set, List
+from pathlib import Path
+from typing import Optional, List
 
 from sqlalchemy import select
 
@@ -41,31 +43,54 @@ def _resolve_orders_dir(orders_dir: Optional[Path] = None) -> Path:
     UNC-Pfade (``\\\\server\\share\\...``).  Auf Windows wird
     :class:`pathlib.WindowsPath` automatisch UNC-Pfade korrekt handhaben;
     auf Linux/macOS wird der rohe Pfad-String beibehalten.
+    
+    Verwendet durchgängig pathlib.Path für Pfad-Operationen.
     """
     logger.info("=" * 60)
     logger.info("_resolve_orders_dir() aufgerufen")
     
     if orders_dir is not None:
-        logger.info(f"  -> Übergebener orders_dir: {orders_dir}")
-        return orders_dir
+        # Übergebenen Pfad normalisieren mit resolve() für absolute Pfade
+        resolved = Path(orders_dir).resolve() if orders_dir.is_absolute() else Path(orders_dir)
+        logger.info(f"  -> Übergebener orders_dir: {orders_dir!r}")
+        logger.info(f"  -> exists={resolved.exists()}, is_dir={resolved.is_dir()}")
+        return resolved
 
-    # BASE_PATH aus Settings laden
-    base = settings.base_path
-    logger.info(f"  -> settings.base_path geladen: {base}")
-    logger.info(f"  -> Typ von base_path: {type(base)}")
+    # BASE_PATH aus Settings laden (ist bereits ein Path-Objekt)
+    base_path: Path = settings.base_path
+    logger.info(f"  -> settings.base_path: {base_path!r}")
+    logger.info(f"  -> base_path exists={base_path.exists()}, is_dir={base_path.is_dir()}")
     
-    # Auftragsordner konstruieren
-    orders_path = Path(os.path.join(str(base), "01_Auftraege"))
-    logger.info(f"  -> Konstruierter Auftragsordner: {orders_path}")
+    # Auftragsordner konstruieren mit pathlib / Operator
+    orders_path = base_path / "01_Auftraege"
+    
+    # Für absolute Pfade: resolve() für kanonischen Pfad (entfernt .., normalisiert)
+    # WICHTIG: Bei UNC-Pfaden oder nicht existierenden Pfaden kann resolve() fehlschlagen
+    # Daher nur anwenden wenn es ein absoluter, existierender Pfad ist
+    if orders_path.is_absolute() and orders_path.exists():
+        try:
+            orders_path = orders_path.resolve()
+        except OSError:
+            pass  # Bei UNC-Pfaden kann resolve() auf manchen Systemen fehlschlagen
+    
+    logger.info(f"  -> Auftragsordner: {orders_path!r}")
+    logger.info(f"  -> orders_path exists={orders_path.exists()}, is_dir={orders_path.is_dir()}")
     logger.info("=" * 60)
     
     return orders_path
 
 
 def _check_directory_access(directory: Path) -> dict:
-    """Prüft Zugriff auf ein Verzeichnis und gibt detaillierte Infos zurück."""
+    """Prüft Zugriff auf ein Verzeichnis und gibt detaillierte Infos zurück.
+    
+    Verwendet pathlib.Path Methoden für alle Checks.
+    """
+    # Sicherstellen, dass directory ein Path-Objekt ist
+    directory = Path(directory)
+    
     result = {
         "path": str(directory),
+        "path_repr": repr(directory),  # Exakter Pfad für Debugging
         "exists": False,
         "is_dir": False,
         "readable": False,
@@ -75,24 +100,27 @@ def _check_directory_access(directory: Path) -> dict:
         "pdf_files": []
     }
     
+    logger.info(f"_check_directory_access() für: {directory!r}")
+    
     try:
-        # Existenz prüfen
+        # Existenz prüfen mit pathlib
         result["exists"] = directory.exists()
-        logger.info(f"  Verzeichnis existiert: {result['exists']}")
+        logger.info(f"  directory.exists(): {result['exists']}")
         
         if not result["exists"]:
-            result["error"] = f"Verzeichnis existiert nicht: {directory}"
+            result["error"] = f"Verzeichnis existiert nicht: {directory!r}"
+            logger.warning(f"  PFAD NICHT GEFUNDEN: {directory!r}")
             return result
         
-        # Ist es ein Verzeichnis?
+        # Ist es ein Verzeichnis? (mit pathlib)
         result["is_dir"] = directory.is_dir()
-        logger.info(f"  Ist Verzeichnis: {result['is_dir']}")
+        logger.info(f"  directory.is_dir(): {result['is_dir']}")
         
         if not result["is_dir"]:
-            result["error"] = f"Pfad ist kein Verzeichnis: {directory}"
+            result["error"] = f"Pfad ist kein Verzeichnis: {directory!r}"
             return result
         
-        # Lesezugriff prüfen
+        # Lesezugriff prüfen mit pathlib.iterdir()
         try:
             files = list(directory.iterdir())
             result["readable"] = True
@@ -103,7 +131,7 @@ def _check_directory_access(directory: Path) -> dict:
             logger.error(f"  Lesezugriff: FEHLER - {e}")
             return result
         
-        # PDF-Dateien zählen
+        # PDF-Dateien zählen mit pathlib.suffix
         pdf_files = [f for f in files if f.suffix.lower() == '.pdf' and f.is_file()]
         result["pdf_count"] = len(pdf_files)
         result["pdf_files"] = [f.name for f in pdf_files]
@@ -196,12 +224,19 @@ def _parse_pdf_filename(filename: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def _get_db() -> DatabaseService:
-    """Erzeugt eine DatabaseService-Instanz mit dem konfigurierten Pfad."""
-    db_path = settings.database_path
-    logger.debug(f"_get_db() - database_path: {db_path}")
+    """Erzeugt eine DatabaseService-Instanz mit dem konfigurierten Pfad.
+    
+    Verwendet pathlib.Path / Operator für Pfad-Joining.
+    """
+    db_path: Path = settings.database_path
+    logger.debug(f"_get_db() - database_path: {db_path!r}")
+    logger.debug(f"  -> is_absolute: {db_path.is_absolute()}, exists: {db_path.exists()}")
+    
     if not db_path.is_absolute():
+        # Relativen Pfad mit pathlib / Operator auflösen
         db_path = settings.base_path / db_path
-        logger.debug(f"_get_db() - relativer Pfad aufgelöst zu: {db_path}")
+        logger.debug(f"_get_db() - relativer Pfad aufgelöst zu: {db_path!r}")
+    
     return DatabaseService(db_path=db_path)
 
 
