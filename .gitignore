@@ -12,6 +12,8 @@ venv/
 
 # Environment
 .env
+.credentials.enc
+.credentials.key
 
 # IDE
 .idea/

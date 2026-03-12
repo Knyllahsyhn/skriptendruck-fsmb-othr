@@ -3,7 +3,7 @@
     "name": "SkriptendruckDashboard",
     "display_name": "Skriptendruck Dashboard",
     "description": "Web-Dashboard für das Skriptendruck-System der FSMB Regensburg",
-    "account": ".\\skriptendruck-service"
+    "account": "muj45678@hs-regensburg.de"
   },
   "application": {
     "module": "skriptendruck.web.app:app",
@@ -20,7 +20,7 @@
     "rotate_files": true
   },
   "recovery": {
-    "restart_on_failure": true,
+    "restart_on_failure": false,
     "restart_delay_ms": 5000,
     "startup_type": "auto"
   },
