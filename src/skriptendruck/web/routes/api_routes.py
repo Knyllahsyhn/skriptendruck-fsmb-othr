@@ -327,24 +327,50 @@ async def delete_order(request: Request, order_id: int):
 
 @router.post("/scan")
 async def trigger_scan(request: Request):
-    """Löst einen manuellen Scan des Auftragsordners aus."""
+    """Löst einen manuellen Scan des Auftragsordners aus.
+    
+    Gibt detaillierte Debugging-Informationen zurück:
+    - base_path: Der konfigurierte BASE_PATH
+    - orders_dir: Der vollständige Pfad zum Auftragsordner
+    - dir_exists: Ob das Verzeichnis existiert
+    - dir_readable: Ob das Verzeichnis lesbar ist
+    - total_files: Anzahl aller Dateien im Ordner
+    - pdf_files: Anzahl der PDF-Dateien
+    - new_orders: Anzahl neu registrierter Aufträge
+    - pdf_list: Liste der gefundenen PDF-Dateinamen (max. 20)
+    """
     user, error = _require_auth(request)
     if error:
         return error
 
     try:
-        from ..file_watcher import scan_orders_directory
+        from ..file_watcher import manual_scan
 
         loop = asyncio.get_running_loop()
-        count = await loop.run_in_executor(None, scan_orders_directory, None)
-        return JSONResponse(content={
-            "success": True,
-            "message": f"{count} neue Aufträge erkannt" if count else "Keine neuen Aufträge",
-            "new_orders": count,
-        })
+        result = await loop.run_in_executor(None, manual_scan)
+        
+        # Benutzerfreundliche Nachricht erstellen
+        if result.get("error"):
+            message = f"Fehler: {result['error']}"
+        elif result.get("new_orders", 0) > 0:
+            message = f"{result['new_orders']} neue Aufträge erkannt"
+        elif result.get("pdf_files", 0) > 0:
+            message = f"Keine neuen Aufträge ({result['pdf_files']} PDFs bereits bekannt)"
+        else:
+            message = "Keine PDF-Dateien im Auftragsordner gefunden"
+        
+        result["message"] = message
+        return JSONResponse(content=result)
+        
     except Exception as e:
         logger.error(f"Fehler beim manuellen Scan: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        import traceback
+        logger.error(traceback.format_exc())
+        return JSONResponse(status_code=500, content={
+            "success": False,
+            "error": str(e),
+            "message": f"Interner Fehler: {e}"
+        })
 
 
 @router.get("/export/orders")

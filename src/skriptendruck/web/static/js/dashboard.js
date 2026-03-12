@@ -304,19 +304,107 @@ async function triggerScan(btn) {
         var data = await res.json();
 
         if (res.ok && data.success) {
-            showToast(data.message || 'Scan abgeschlossen', data.new_orders > 0 ? 'success' : 'info');
+            // Erfolgreicher Scan
+            var toastType = data.new_orders > 0 ? 'success' : 'info';
+            showToast(data.message || 'Scan abgeschlossen', toastType);
+            
+            // Debug-Info in Console loggen
+            console.log('Scan-Ergebnis:', data);
+            
             if (data.new_orders > 0) {
                 setTimeout(function () { location.reload(); }, 1000);
             }
         } else {
-            showToast(data.error || 'Fehler beim Scannen', 'danger');
+            // Fehler beim Scan - detaillierte Infos anzeigen
+            var errorMsg = data.message || data.error || 'Unbekannter Fehler';
+            showToast(errorMsg, 'danger');
+            
+            // Detaillierte Debug-Infos in Console und als Alert
+            console.error('Scan-Fehler:', data);
+            if (data.orders_dir) {
+                console.log('Auftragsordner:', data.orders_dir);
+                console.log('Existiert:', data.dir_exists);
+                console.log('Lesbar:', data.dir_readable);
+            }
+            
+            // Bei Pfad-Problemen detailliertes Modal anzeigen
+            if (data.error && !data.dir_exists) {
+                showScanDebugModal(data);
+            }
         }
     } catch (err) {
         showToast('Netzwerkfehler: ' + err.message, 'danger');
+        console.error('Scan Netzwerkfehler:', err);
     } finally {
         setButtonLoading(btn, false);
         btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Ordner scannen';
     }
+}
+
+/**
+ * Zeigt ein Debug-Modal mit detaillierten Scan-Informationen an
+ */
+function showScanDebugModal(data) {
+    // Prüfen ob Modal schon existiert, sonst erstellen
+    var modal = document.getElementById('scanDebugModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'scanDebugModal';
+        modal.tabIndex = -1;
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title"><i class="bi bi-bug me-2"></i>Scan Debug-Info</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="scanDebugContent">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Content aktualisieren
+    var content = document.getElementById('scanDebugContent');
+    var statusIcon = data.dir_exists ? '✓' : '✗';
+    var readableIcon = data.dir_readable ? '✓' : '✗';
+    
+    content.innerHTML = `
+        <div class="alert ${data.error ? 'alert-danger' : 'alert-info'}">
+            <strong>Fehler:</strong> ${data.error || 'Kein Fehler'}
+        </div>
+        <table class="table table-sm">
+            <tr><th>BASE_PATH</th><td><code>${data.base_path || 'nicht gesetzt'}</code></td></tr>
+            <tr><th>Auftragsordner</th><td><code>${data.orders_dir || 'nicht ermittelt'}</code></td></tr>
+            <tr><th>Verzeichnis existiert</th><td>${statusIcon} ${data.dir_exists ? 'Ja' : 'Nein'}</td></tr>
+            <tr><th>Verzeichnis lesbar</th><td>${readableIcon} ${data.dir_readable ? 'Ja' : 'Nein'}</td></tr>
+            <tr><th>Dateien gesamt</th><td>${data.total_files || 0}</td></tr>
+            <tr><th>PDF-Dateien</th><td>${data.pdf_files || 0}</td></tr>
+            <tr><th>Neue Aufträge</th><td>${data.new_orders || 0}</td></tr>
+        </table>
+        ${data.pdf_list && data.pdf_list.length > 0 ? `
+            <h6>Gefundene PDFs:</h6>
+            <ul class="small">${data.pdf_list.map(f => '<li>' + f + '</li>').join('')}</ul>
+        ` : ''}
+        <hr>
+        <h6>Troubleshooting:</h6>
+        <ol class="small">
+            <li>Prüfen Sie <code>BASE_PATH</code> in der <code>.env</code> Datei</li>
+            <li>Stellen Sie sicher, dass der Ordner <code>01_Auftraege</code> existiert</li>
+            <li>Prüfen Sie die Netzlaufwerk-Verbindung</li>
+            <li>Prüfen Sie die Berechtigungen des Service-Accounts</li>
+        </ol>
+    `;
+    
+    // Modal anzeigen
+    var bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
 }
 
 

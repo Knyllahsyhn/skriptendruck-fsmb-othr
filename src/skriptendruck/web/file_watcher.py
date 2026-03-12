@@ -16,9 +16,10 @@ Der überwachte Pfad wird wie folgt bestimmt:
 import asyncio
 import os
 import re
+import traceback
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
-from typing import Optional, Set
+from typing import Optional, Set, List
 
 from sqlalchemy import select
 
@@ -41,11 +42,86 @@ def _resolve_orders_dir(orders_dir: Optional[Path] = None) -> Path:
     :class:`pathlib.WindowsPath` automatisch UNC-Pfade korrekt handhaben;
     auf Linux/macOS wird der rohe Pfad-String beibehalten.
     """
+    logger.info("=" * 60)
+    logger.info("_resolve_orders_dir() aufgerufen")
+    
     if orders_dir is not None:
+        logger.info(f"  -> Übergebener orders_dir: {orders_dir}")
         return orders_dir
 
+    # BASE_PATH aus Settings laden
     base = settings.base_path
-    return Path(os.path.join(str(base), "01_Auftraege"))
+    logger.info(f"  -> settings.base_path geladen: {base}")
+    logger.info(f"  -> Typ von base_path: {type(base)}")
+    
+    # Auftragsordner konstruieren
+    orders_path = Path(os.path.join(str(base), "01_Auftraege"))
+    logger.info(f"  -> Konstruierter Auftragsordner: {orders_path}")
+    logger.info("=" * 60)
+    
+    return orders_path
+
+
+def _check_directory_access(directory: Path) -> dict:
+    """Prüft Zugriff auf ein Verzeichnis und gibt detaillierte Infos zurück."""
+    result = {
+        "path": str(directory),
+        "exists": False,
+        "is_dir": False,
+        "readable": False,
+        "files_count": 0,
+        "pdf_count": 0,
+        "error": None,
+        "pdf_files": []
+    }
+    
+    try:
+        # Existenz prüfen
+        result["exists"] = directory.exists()
+        logger.info(f"  Verzeichnis existiert: {result['exists']}")
+        
+        if not result["exists"]:
+            result["error"] = f"Verzeichnis existiert nicht: {directory}"
+            return result
+        
+        # Ist es ein Verzeichnis?
+        result["is_dir"] = directory.is_dir()
+        logger.info(f"  Ist Verzeichnis: {result['is_dir']}")
+        
+        if not result["is_dir"]:
+            result["error"] = f"Pfad ist kein Verzeichnis: {directory}"
+            return result
+        
+        # Lesezugriff prüfen
+        try:
+            files = list(directory.iterdir())
+            result["readable"] = True
+            result["files_count"] = len(files)
+            logger.info(f"  Lesezugriff: OK ({len(files)} Einträge)")
+        except PermissionError as e:
+            result["error"] = f"Keine Leseberechtigung: {e}"
+            logger.error(f"  Lesezugriff: FEHLER - {e}")
+            return result
+        
+        # PDF-Dateien zählen
+        pdf_files = [f for f in files if f.suffix.lower() == '.pdf' and f.is_file()]
+        result["pdf_count"] = len(pdf_files)
+        result["pdf_files"] = [f.name for f in pdf_files]
+        logger.info(f"  PDF-Dateien gefunden: {len(pdf_files)}")
+        
+        if pdf_files:
+            for pdf in pdf_files[:10]:  # Maximal 10 anzeigen
+                logger.info(f"    - {pdf.name}")
+            if len(pdf_files) > 10:
+                logger.info(f"    ... und {len(pdf_files) - 10} weitere")
+        
+    except Exception as e:
+        result["error"] = f"Unerwarteter Fehler: {e}"
+        logger.error(f"  Fehler beim Prüfen: {e}")
+        logger.error(traceback.format_exc())
+    
+    return result
+
 
 # ---------------------------------------------------------------------------
 # Dateiname-Parsing (leichtgewichtig, ohne schwere Pipeline-Abhängigkeiten)
@@ -111,6 +187,7 @@ def _parse_pdf_filename(filename: str) -> dict:
     elif len(name_parts) == 1:
         info["last_name"] = name_parts[0]
 
+    logger.debug(f"  Dateiname geparst: {filename} -> {info}")
     return info
 
 
@@ -121,8 +198,10 @@ def _parse_pdf_filename(filename: str) -> dict:
 def _get_db() -> DatabaseService:
     """Erzeugt eine DatabaseService-Instanz mit dem konfigurierten Pfad."""
     db_path = settings.database_path
+    logger.debug(f"_get_db() - database_path: {db_path}")
     if not db_path.is_absolute():
         db_path = settings.base_path / db_path
+        logger.debug(f"_get_db() - relativer Pfad aufgelöst zu: {db_path}")
     return DatabaseService(db_path=db_path)
 
 
@@ -156,8 +235,11 @@ def _register_file(db: DatabaseService, pdf_path: Path) -> Optional[OrderRecord]
     """
     filename = pdf_path.name
     filepath_str = str(pdf_path)
+    
+    logger.debug(f"_register_file() - Verarbeite: {filename}")
 
     if _is_file_known(db, filename, filepath_str):
+        logger.debug(f"  -> Datei bereits bekannt, überspringe: {filename}")
         return None
 
     meta = _parse_pdf_filename(filename)
@@ -165,7 +247,9 @@ def _register_file(db: DatabaseService, pdf_path: Path) -> Optional[OrderRecord]
 
     try:
         file_size = pdf_path.stat().st_size
-    except OSError:
+        logger.debug(f"  -> Dateigröße: {file_size} Bytes")
+    except OSError as e:
+        logger.warning(f"  -> Konnte Dateigröße nicht ermitteln: {e}")
         file_size = 0
 
     record = OrderRecord(
@@ -188,12 +272,13 @@ def _register_file(db: DatabaseService, pdf_path: Path) -> Optional[OrderRecord]
             session.commit()
             session.refresh(record)
             logger.info(
-                f"Neuer Auftrag registriert: #{record.order_id} – "
-                f"{filename} (user={meta['username']})"
+                f"✓ Neuer Auftrag registriert: #{record.order_id} – "
+                f"{filename} (user={meta['username']}, color={meta['color_mode']}, binding={meta['binding_type']})"
             )
             return record
     except Exception as exc:
-        logger.error(f"Fehler beim Registrieren von {filename}: {exc}")
+        logger.error(f"✗ Fehler beim Registrieren von {filename}: {exc}")
+        logger.error(traceback.format_exc())
         return None
 
 
@@ -212,24 +297,124 @@ def scan_orders_directory(orders_dir: Optional[Path] = None) -> int:
     Returns:
         Anzahl neu registrierter Aufträge.
     """
+    logger.info("-" * 60)
+    logger.info("scan_orders_directory() gestartet")
+    
+    # Pfad auflösen
     orders_dir = _resolve_orders_dir(orders_dir)
-
-    if not orders_dir.exists():
-        logger.debug(f"Auftragsverzeichnis nicht vorhanden: {orders_dir}")
+    
+    # Verzeichniszugriff prüfen
+    logger.info("Prüfe Verzeichniszugriff...")
+    access_info = _check_directory_access(orders_dir)
+    
+    if access_info["error"]:
+        logger.error(f"FEHLER: {access_info['error']}")
+        logger.error("-" * 60)
+        return 0
+    
+    if not access_info["exists"]:
+        logger.warning(f"Auftragsverzeichnis nicht vorhanden: {orders_dir}")
+        logger.warning("Bitte prüfen Sie:")
+        logger.warning(f"  1. Ist BASE_PATH in .env korrekt gesetzt? (aktuell: {settings.base_path})")
+        logger.warning(f"  2. Existiert der Ordner '01_Auftraege' unter {settings.base_path}?")
+        logger.warning(f"  3. Hat der Service-User Zugriff auf das Netzlaufwerk?")
+        logger.warning("-" * 60)
         return 0
 
-    db = _get_db()
-    registered = 0
+    if access_info["pdf_count"] == 0:
+        logger.info(f"Keine PDF-Dateien im Ordner gefunden: {orders_dir}")
+        logger.info("-" * 60)
+        return 0
 
-    for pdf_path in sorted(orders_dir.glob("*.pdf")):
-        if pdf_path.is_file():
-            rec = _register_file(db, pdf_path)
-            if rec is not None:
-                registered += 1
+    # Datenbank initialisieren
+    logger.info("Initialisiere Datenbankverbindung...")
+    try:
+        db = _get_db()
+        logger.info("  -> Datenbankverbindung OK")
+    except Exception as e:
+        logger.error(f"Datenbankfehler: {e}")
+        logger.error(traceback.format_exc())
+        return 0
+
+    # PDFs verarbeiten
+    registered = 0
+    logger.info(f"Verarbeite {access_info['pdf_count']} PDF-Dateien...")
+    
+    try:
+        for pdf_path in sorted(orders_dir.glob("*.pdf")):
+            if pdf_path.is_file():
+                rec = _register_file(db, pdf_path)
+                if rec is not None:
+                    registered += 1
+    except Exception as e:
+        logger.error(f"Fehler beim Durchsuchen des Ordners: {e}")
+        logger.error(traceback.format_exc())
 
     if registered:
-        logger.info(f"File-Watcher: {registered} neue Aufträge registriert")
+        logger.info(f"✓ File-Watcher: {registered} neue Aufträge registriert")
+    else:
+        logger.info("Keine neuen Aufträge (alle Dateien bereits bekannt)")
+    
+    logger.info("-" * 60)
     return registered
+
+
+# ---------------------------------------------------------------------------
+# Manueller Scan (API-Aufruf)
+# ---------------------------------------------------------------------------
+
+def manual_scan() -> dict:
+    """Führt einen manuellen Scan durch und gibt detaillierte Infos zurück.
+    
+    Diese Funktion wird vom API-Endpoint /api/scan aufgerufen.
+    """
+    logger.info("=" * 60)
+    logger.info("MANUELLER SCAN GESTARTET")
+    logger.info("=" * 60)
+    
+    result = {
+        "success": False,
+        "base_path": str(settings.base_path),
+        "orders_dir": None,
+        "dir_exists": False,
+        "dir_readable": False,
+        "total_files": 0,
+        "pdf_files": 0,
+        "new_orders": 0,
+        "error": None,
+        "pdf_list": []
+    }
+    
+    try:
+        # Pfad auflösen
+        orders_dir = _resolve_orders_dir()
+        result["orders_dir"] = str(orders_dir)
+        
+        # Zugriff prüfen
+        access_info = _check_directory_access(orders_dir)
+        result["dir_exists"] = access_info["exists"]
+        result["dir_readable"] = access_info["readable"]
+        result["total_files"] = access_info["files_count"]
+        result["pdf_files"] = access_info["pdf_count"]
+        result["pdf_list"] = access_info["pdf_files"][:20]  # Max 20 anzeigen
+        
+        if access_info["error"]:
+            result["error"] = access_info["error"]
+            logger.error(f"Scan-Fehler: {access_info['error']}")
+            return result
+        
+        # Scan durchführen
+        result["new_orders"] = scan_orders_directory(orders_dir)
+        result["success"] = True
+        
+    except Exception as e:
+        result["error"] = str(e)
+        logger.error(f"Unerwarteter Fehler beim Scan: {e}")
+        logger.error(traceback.format_exc())
+    
+    logger.info(f"Scan-Ergebnis: {result}")
+    logger.info("=" * 60)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -249,12 +434,28 @@ async def watch_orders_loop(
         orders_dir: Pfad zum Auftragsordner (optional, sonst default).
     """
     resolved_dir = _resolve_orders_dir(orders_dir)
-    logger.info(
-        f"File-Watcher gestartet (Intervall: {poll_interval}s, "
-        f"Ordner: {resolved_dir})"
-    )
+    
+    logger.info("=" * 60)
+    logger.info("FILE-WATCHER BACKGROUND TASK GESTARTET")
+    logger.info("=" * 60)
+    logger.info(f"  Poll-Intervall: {poll_interval} Sekunden")
+    logger.info(f"  BASE_PATH: {settings.base_path}")
+    logger.info(f"  Auftragsordner: {resolved_dir}")
+    logger.info(f"  Datenbank: {settings.database_path}")
+    logger.info("=" * 60)
+    
+    # Initialer Zugriffs-Check
+    logger.info("Initialer Verzeichnis-Check...")
+    access_info = _check_directory_access(resolved_dir)
+    if access_info["error"]:
+        logger.error(f"WARNUNG: {access_info['error']}")
+        logger.error("Der File-Watcher wird trotzdem gestartet und prüft periodisch.")
+    
+    scan_count = 0
     while True:
+        scan_count += 1
         try:
+            logger.debug(f"Scan #{scan_count} gestartet...")
             # Scan in einem Thread ausführen, um den Event-Loop nicht zu blockieren
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, scan_orders_directory, orders_dir)
@@ -262,7 +463,8 @@ async def watch_orders_loop(
             logger.info("File-Watcher wird beendet …")
             break
         except Exception as exc:
-            logger.error(f"File-Watcher Fehler: {exc}")
+            logger.error(f"File-Watcher Fehler bei Scan #{scan_count}: {exc}")
+            logger.error(traceback.format_exc())
 
         try:
             await asyncio.sleep(poll_interval)
