@@ -136,6 +136,128 @@ Siehe [WINDOWS_SERVICE_SETUP.md](WINDOWS_SERVICE_SETUP.md) für Details.
 
 ---
 
+## Schritt 5b: PaperCut Client Autostart (Optional)
+
+Falls der PaperCut Client (`pcclient.exe`) separat unter einem anderen Benutzer laufen soll
+(z.B. für spezielle Abrechnungsanforderungen), kann dieser über Task Scheduler automatisch
+beim Systemstart gestartet werden.
+
+### Warum pcclient separat starten?
+
+- Das Dashboard läuft unter `skriptendruck-service` für die Print-Attribution
+- Der PaperCut Client kann unter einem anderen User laufen (z.B. für Client-seitige Popup-Benachrichtigungen)
+- Trennung von Dashboard-Service und PaperCut Client
+
+### Installation
+
+```powershell
+# Als Administrator ausführen
+.\setup_papercut_autostart.ps1
+```
+
+Das Skript:
+1. Findet `pc-client.exe` automatisch in bekannten PaperCut-Installationspfaden
+2. Erstellt einen Task Scheduler Task "PaperCut Client Autostart"
+3. Konfiguriert den Task für automatischen Start bei Systemboot
+4. Ermöglicht optionalen Teststart
+
+#### Mit manuellem Pfad
+
+```powershell
+.\setup_papercut_autostart.ps1 -PaperCutPath "D:\PaperCut\client\pc-client.exe"
+```
+
+#### Mit anderem Service-User
+
+```powershell
+.\setup_papercut_autostart.ps1 -ServiceUser ".\print-user"
+```
+
+### Task-Konfiguration
+
+Der erstellte Task hat folgende Eigenschaften:
+
+| Eigenschaft | Wert |
+|---|---|
+| Name | PaperCut Client Autostart |
+| Trigger | Bei Systemstart |
+| Benutzer | `.\skriptendruck-service` (konfigurierbar) |
+| Neustart bei Fehler | 3 Versuche, 1 Minute Intervall |
+| Mehrere Instanzen | Ignorieren |
+
+### Deinstallation
+
+```powershell
+# Task entfernen
+.\remove_papercut_autostart.ps1
+
+# Task entfernen und Prozess beenden
+.\remove_papercut_autostart.ps1 -StopProcess
+```
+
+### Überprüfung
+
+#### Task im Task Scheduler prüfen
+
+```powershell
+# Task-Status anzeigen
+Get-ScheduledTask -TaskName "PaperCut Client Autostart"
+
+# Task-Details anzeigen
+Get-ScheduledTaskInfo -TaskName "PaperCut Client Autostart"
+```
+
+Oder visuell:
+1. **Windows-Taste + R** → `taskschd.msc` → Enter
+2. Im linken Panel: **Aufgabenplanungsbibliothek**
+3. Task "PaperCut Client Autostart" suchen
+
+#### Prüfen ob pcclient läuft
+
+```powershell
+Get-Process -Name "pc-client" -ErrorAction SilentlyContinue
+```
+
+#### Task manuell starten
+
+```powershell
+Start-ScheduledTask -TaskName "PaperCut Client Autostart"
+```
+
+### Alternative: PaperCut Client als Windows-Service
+
+PaperCut bietet keine native Service-Option für den Client (`pcclient.exe`), aber es gibt Alternativen:
+
+**Option 1: NSSM (empfohlen für Headless-Server)**
+```powershell
+# pcclient als Service mit NSSM installieren
+nssm install PaperCutClient "C:\Program Files\PaperCut NG\client\pc-client.exe"
+nssm set PaperCutClient Start SERVICE_AUTO_START
+nssm set PaperCutClient ObjectName .\skriptendruck-service <password>
+```
+
+**Option 2: PaperCut User Client mit Login-Script**
+Falls interaktive Anmeldung erforderlich, kann der Client per Login-Script gestartet werden:
+```batch
+@echo off
+start "" "C:\Program Files\PaperCut NG\client\pc-client.exe"
+```
+
+> **Hinweis:** Die Task Scheduler-Methode (dieses Skript) ist die empfohlene Lösung,
+> da sie robust ist und den Client unabhängig von Benutzeranmeldungen startet.
+
+### Troubleshooting
+
+| Problem | Lösung |
+|---|---|
+| pcclient startet nicht nach Neustart | Task im Task Scheduler prüfen, Trigger-Status überprüfen |
+| "Zugriff verweigert" Fehler | Passwort des Service-Users prüfen, neu eingeben |
+| Task läuft aber pcclient nicht sichtbar | Normal bei "Run whether user is logged on or not" – Prozess existiert |
+| pcclient stürzt wiederholt ab | PaperCut Server-Verbindung prüfen, Logs in `%APPDATA%\PaperCut NG` |
+| Falscher User für Druckabrechnung | Service-User im Task Scheduler ändern |
+
+---
+
 ## Schritt 6: Funktionstest
 
 ### Service-Status prüfen
