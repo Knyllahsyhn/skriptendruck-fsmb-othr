@@ -78,13 +78,48 @@ Wenn `LDAP_ENABLED=true`, wird der Benutzer gegen das Active Directory der HS Re
 ### .env-Fallback
 Wenn LDAP nicht verfügbar ist, kann ein Admin-Account über die `.env`-Datei konfiguriert werden.
 
+## File-Watcher (Automatische Auftragserkennung)
+
+Das Dashboard enthält einen **Background-Service**, der den Aufträgeordner (`01_Auftraege`) kontinuierlich auf neue PDF-Dateien überwacht und diese automatisch als *pending* in die Datenbank einträgt.
+
+### Funktionsweise
+
+1. Beim Start des Dashboards wird ein Hintergrund-Task gestartet (asyncio).
+2. Alle `FILE_WATCHER_INTERVAL` Sekunden (Standard: 10) wird der Ordner gescannt.
+3. Neue PDF-Dateien werden erkannt, Metadaten aus dem Dateinamen extrahiert und der Auftrag als `pending` in der DB registriert.
+4. **Es wird NICHT automatisch gedruckt.** Drucken/Verarbeiten geschieht nur über den "Starten"-Button im Dashboard.
+
+### Konfiguration
+
+| Variable | Beschreibung | Default |
+|---|---|---|
+| `FILE_WATCHER_ENABLED` | Watcher aktivieren/deaktivieren | `true` |
+| `FILE_WATCHER_INTERVAL` | Scan-Intervall in Sekunden | `10` |
+| `FILE_WATCHER_DIR` | Auftragsordner (optional, sonst `BASE_PATH/01_Auftraege`) | – |
+
+### Manueller Scan
+
+Über den API-Endpoint `POST /api/scan` kann jederzeit ein manueller Scan ausgelöst werden.
+
+### "Starten"-Funktion
+
+Wenn ein Auftrag im Dashboard über den "Starten"-Button ausgelöst wird, geschieht Folgendes:
+1. Dateiname wird geparst (Benutzer, Farbmodus, Bindung)
+2. Benutzer wird validiert (LDAP / Fallback)
+3. PDF wird analysiert (Seitenzahl, Passwortschutz)
+4. Preis wird berechnet
+5. Deckblatt wird erstellt und mit dem PDF zusammengefügt
+6. Dateien werden in die Ordnerstruktur organisiert (`02_Druckfertig/`, etc.)
+7. Der Status wird in der DB aktualisiert (`pending` → `processed` oder `error_*`)
+
 ## Projektstruktur
 
 ```
 src/skriptendruck/web/
 ├── __init__.py
-├── app.py              # FastAPI-App mit Middleware
+├── app.py              # FastAPI-App mit Middleware + Lifespan
 ├── auth.py             # LDAP-Auth + Session-Management
+├── file_watcher.py     # Background File-Watcher Service
 ├── routes/
 │   ├── auth_routes.py      # Login / Logout
 │   ├── dashboard_routes.py # Dashboard, Aufträge, Statistiken
@@ -110,8 +145,9 @@ src/skriptendruck/web/
 | `GET` | `/logout` | Abmelden |
 | `GET` | `/orders` | Auftragsübersicht |
 | `GET` | `/statistics` | Statistiken |
-| `POST` | `/api/orders/{id}/start` | Auftrag freigeben |
+| `POST` | `/api/orders/{id}/start` | Auftrag verarbeiten (Pipeline) |
 | `DELETE` | `/api/orders/{id}` | Auftrag löschen |
+| `POST` | `/api/scan` | Manuellen Ordner-Scan auslösen |
 | `GET` | `/api/export/orders` | Excel-Export Aufträge |
 | `GET` | `/api/export/billing` | Excel-Export Abrechnungen |
 | `GET` | `/api/statistics` | Statistiken (JSON) |
