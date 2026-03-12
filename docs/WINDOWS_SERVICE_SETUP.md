@@ -38,7 +38,9 @@ Das Projekt muss bereits eingerichtet sein:
 
 ### 2. Service-Account anlegen
 
-Ein lokaler Windows-User wird benötigt, unter dem der Service läuft:
+Ein Windows-User wird benötigt, unter dem der Service läuft. Das kann ein **lokaler User** oder ein **Domain-User** sein.
+
+#### Option A: Lokaler User (Standard)
 
 ```powershell
 # Als Administrator ausführen
@@ -51,6 +53,24 @@ New-LocalUser -Name "skriptendruck-service" `
 # User zur Users-Gruppe hinzufügen
 Add-LocalGroupMember -Group "Users" -Member "skriptendruck-service"
 ```
+
+#### Option B: Domain-User
+
+Wenn ein Domain-User verwendet werden soll (z.B. für zentrale Verwaltung oder spezielle Berechtigungen):
+
+1. **User in Active Directory anlegen** (durch AD-Administrator)
+2. **Berechtigungen vergeben:**
+   - Zugriff auf das Projektverzeichnis
+   - Zugriff auf die Drucker
+   - Ggf. Zugriff auf Netzlaufwerke
+
+**Unterstützte Formate:**
+| Format | Beispiel | Beschreibung |
+|--------|----------|--------------|
+| `DOMAIN\username` | `FSMB\skriptendruck` | NetBIOS-Domain |
+| `username@domain.com` | `skriptendruck@fsmb.local` | UPN-Format |
+| `.\username` | `.\skriptendruck-service` | Explizit lokaler User |
+| `username` | `skriptendruck-service` | Standard (interaktive Nachfrage) |
 
 ### 3. .env Datei konfigurieren
 
@@ -87,8 +107,28 @@ Das Skript:
 # Anderer Port
 .\install_service.ps1 -Port 8080
 
-# Anderer Service-User
+# Lokaler User
 .\install_service.ps1 -ServiceUser "mein-service-user"
+
+# Domain-User (DOMAIN\username Format)
+.\install_service.ps1 -ServiceUser "FSMB\skriptendruck"
+
+# Domain-User (UPN-Format)
+.\install_service.ps1 -ServiceUser "skriptendruck@fsmb.local"
+```
+
+### Interaktive User-Auswahl
+
+Wenn nur ein einfacher Username ohne Domain angegeben wird, fragt das Skript interaktiv nach:
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║  User-Typ für 'skriptendruck-service' auswählen:               ║
+╠════════════════════════════════════════════════════════════════╣
+║  [L] Lokaler User        (.\skriptendruck-service)             ║
+║  [D] Domain-User         (FSMB\skriptendruck-service)          ║
+║  [A] Anderer User/Format (manuell eingeben)                    ║
+╚════════════════════════════════════════════════════════════════╝
 ```
 
 ---
@@ -248,21 +288,64 @@ netstat -ano | findstr :8000
 .\install_service.ps1
 ```
 
+### Domain-User spezifische Probleme
+
+#### AD-Modul nicht verfügbar
+
+Falls bei Domain-Usern die Validierung nicht funktioniert:
+
+```powershell
+# RSAT-Tools installieren (Windows 10/11)
+Add-WindowsCapability -Online -Name Rsat.ActiveDirectory.DS-LDS.Tools~~~~0.0.1.0
+
+# Auf Windows Server
+Install-WindowsFeature RSAT-AD-PowerShell
+```
+
+**Hinweis:** Das Skript funktioniert auch ohne AD-Modul – es kann nur den User nicht vorher validieren.
+
+#### Domänen-Anmeldung fehlgeschlagen
+
+Typische Fehler und Lösungen:
+
+| Fehler | Ursache | Lösung |
+|--------|---------|--------|
+| "The user name or password is incorrect" | Falsches Passwort | Passwort erneut eingeben |
+| "The trust relationship between this workstation and the primary domain failed" | Domain-Trust-Problem | IT-Administrator kontaktieren |
+| "The specified domain either does not exist or could not be contacted" | Domain nicht erreichbar | Netzwerkverbindung prüfen |
+| "Logon failure: the user has not been granted the requested logon type" | Fehlende Berechtigung | "Anmelden als Dienst" Recht vergeben |
+
+#### "Anmelden als Dienst" für Domain-User
+
+```powershell
+# Lokale Sicherheitsrichtlinie öffnen
+secpol.msc
+
+# Navigiere zu:
+# Lokale Richtlinien → Zuweisen von Benutzerrechten → Anmelden als Dienst
+# → Domain-User hinzufügen: DOMAIN\username
+```
+
+Oder per Gruppenrichtlinie (GPO) vom AD-Administrator einrichten lassen.
+
 ---
 
 ## PaperCut-Integration
 
-Da der Service unter dem Account `skriptendruck-service` läuft, werden **alle Druckaufträge automatisch** diesem User in PaperCut zugeordnet.
+Da der Service unter dem konfigurierten Account läuft, werden **alle Druckaufträge automatisch** diesem User in PaperCut zugeordnet.
 
 ### Vorteile
 
 - Kein `pc-print.exe` erforderlich
 - Automatische User-Zuordnung durch PaperCut
 - Einfaches Tracking aller Skriptendruck-Aufträge
+- Funktioniert mit lokalen UND Domain-Usern
 
 ### PaperCut Konfiguration
 
-1. User `skriptendruck-service` in PaperCut registrieren
+1. Service-User in PaperCut registrieren:
+   - Lokaler User: `COMPUTERNAME\skriptendruck-service`
+   - Domain-User: `DOMAIN\skriptendruck-service` (erscheint automatisch durch AD-Sync)
 2. Optional: Shared Account "Skriptendruck" erstellen und zuweisen
 3. Drucker-Zugriff für den User erlauben
 
@@ -291,12 +374,17 @@ Siehe [PAPERCUT_SETUP.md](PAPERCUT_SETUP.md) für Details.
 # Service stoppen
 .\tools\nssm\nssm.exe stop SkriptendruckDashboard
 
-# User ändern (interaktive Passworteingabe)
+# Lokaler User ändern
 .\tools\nssm\nssm.exe set SkriptendruckDashboard ObjectName ".\\neuer-user" "passwort"
+
+# Domain-User ändern
+.\tools\nssm\nssm.exe set SkriptendruckDashboard ObjectName "DOMAIN\\neuer-user" "passwort"
 
 # Service starten
 .\tools\nssm\nssm.exe start SkriptendruckDashboard
 ```
+
+**Hinweis:** Bei Domain-Usern wird der Backslash verdoppelt (`DOMAIN\\user`), da NSSM dies erwartet.
 
 ---
 
