@@ -20,6 +20,32 @@
         </div>
     </div>
 
+    <!-- Bulk Action Bar (erscheint bei Auswahl) -->
+    <div class="bulk-action-bar card border-0 shadow mb-3" id="bulkActionBar" style="display: none;">
+        <div class="card-body py-2 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <span class="fw-semibold">
+                    <i class="bi bi-check2-square me-1"></i>
+                    <span id="selectedCount">0</span> Aufträge ausgewählt
+                </span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                    <i class="bi bi-x me-1"></i>Auswahl aufheben
+                </button>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-success" id="bulkStartBtn" onclick="bulkStartSelected()" style="display: none;">
+                    <i class="bi bi-play-fill me-1"></i>Ausgewählte starten
+                </button>
+                <button class="btn btn-sm btn-primary" id="bulkPrintBtn" onclick="bulkPrintSelected()" style="display: none;">
+                    <i class="bi bi-printer me-1"></i>Ausgewählte drucken
+                </button>
+                <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" onclick="bulkDeleteSelected()">
+                    <i class="bi bi-trash me-1"></i>Ausgewählte löschen
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Statistik-Karten -->
     <div class="row g-3 mb-4">
         <div class="col-sm-6 col-xl-3">
@@ -90,10 +116,16 @@
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 kanban-column kanban-pending">
                 <div class="card-header border-bottom d-flex justify-content-between align-items-center bg-warning bg-opacity-10">
-                    <h5 class="mb-0 fw-semibold">
-                        <i class="bi bi-hourglass-split text-warning me-2"></i>Ausstehend
-                        <span class="badge bg-warning text-dark ms-2" id="badge-pending">{{ pending_count }}</span>
-                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="selectAllPending" 
+                                   onchange="toggleSelectColumn('pending', this.checked)">
+                        </div>
+                        <h5 class="mb-0 fw-semibold">
+                            <i class="bi bi-hourglass-split text-warning me-2"></i>Ausstehend
+                            <span class="badge bg-warning text-dark ms-2" id="badge-pending">{{ pending_count }}</span>
+                        </h5>
+                    </div>
                     {% if pending_orders %}
                     <button class="btn btn-sm btn-warning fw-semibold" id="btnStartAll" onclick="startAllOrders(this)">
                         <i class="bi bi-play-fill me-1"></i> Alle starten
@@ -103,9 +135,17 @@
                 <div class="card-body kanban-body p-2" id="column-pending">
                     {% if pending_orders %}
                         {% for order in pending_orders %}
-                        <div class="kanban-card order-card pending" id="order-card-{{ order.order_id }}" data-order-id="{{ order.order_id }}">
+                        <div class="kanban-card order-card pending" id="order-card-{{ order.order_id }}" 
+                             data-order-id="{{ order.order_id }}" data-status="pending">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <span class="badge bg-secondary">#{{ order.order_id }}</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input order-checkbox" type="checkbox" 
+                                               data-order-id="{{ order.order_id }}" data-status="pending"
+                                               onchange="updateBulkSelection()">
+                                    </div>
+                                    <span class="badge bg-secondary">#{{ order.order_id }}</span>
+                                </div>
                                 <small class="text-muted">{{ order.created_at }}</small>
                             </div>
                             <div class="order-filename mb-2" title="{{ order.filename }}">
@@ -153,7 +193,8 @@
                 <div class="card-body kanban-body p-2" id="column-processing">
                     {% if processing_orders %}
                         {% for order in processing_orders %}
-                        <div class="kanban-card order-card processing" id="order-card-{{ order.order_id }}" data-order-id="{{ order.order_id }}">
+                        <div class="kanban-card order-card processing" id="order-card-{{ order.order_id }}" 
+                             data-order-id="{{ order.order_id }}" data-status="processing">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <span class="badge bg-info">#{{ order.order_id }}</span>
                                 <small class="text-muted">{{ order.created_at }}</small>
@@ -194,10 +235,16 @@
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 kanban-column kanban-completed">
                 <div class="card-header border-bottom d-flex justify-content-between align-items-center bg-success bg-opacity-10">
-                    <h5 class="mb-0 fw-semibold">
-                        <i class="bi bi-check-circle-fill text-success me-2"></i>Abgeschlossen
-                        <span class="badge bg-success ms-2" id="badge-completed">{{ completed_count }}</span>
-                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="selectAllCompleted" 
+                                   onchange="toggleSelectColumn('completed', this.checked)">
+                        </div>
+                        <h5 class="mb-0 fw-semibold">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>Abgeschlossen
+                            <span class="badge bg-success ms-2" id="badge-completed">{{ completed_count }}</span>
+                        </h5>
+                    </div>
                     <a href="/orders" class="btn btn-sm btn-outline-primary">
                         Alle anzeigen <i class="bi bi-arrow-right"></i>
                     </a>
@@ -205,12 +252,19 @@
                 <div class="card-body kanban-body p-2" id="column-completed">
                     {% if completed_orders %}
                         {% for order in completed_orders %}
-                        <div class="kanban-card order-card {{ 'error' if 'error' in order.status else 'completed' }}" 
-                             id="order-card-{{ order.order_id }}" data-order-id="{{ order.order_id }}">
+                        <div class="kanban-card order-card {{ 'error' if 'error' in order.status else ('processed' if order.status == 'processed' else 'completed') }}" 
+                             id="order-card-{{ order.order_id }}" data-order-id="{{ order.order_id }}" data-status="{{ order.status }}">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <span class="badge {{ 'bg-danger' if 'error' in order.status else 'bg-success' }}">
-                                    #{{ order.order_id }}
-                                </span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input order-checkbox" type="checkbox" 
+                                               data-order-id="{{ order.order_id }}" data-status="{{ order.status }}"
+                                               onchange="updateBulkSelection()">
+                                    </div>
+                                    <span class="badge {{ 'bg-danger' if 'error' in order.status else ('bg-primary' if order.status == 'processed' else 'bg-success') }}">
+                                        #{{ order.order_id }}
+                                    </span>
+                                </div>
                                 <small class="text-muted">{{ order.processed_at or order.created_at }}</small>
                             </div>
                             <div class="order-filename mb-2" title="{{ order.filename }}">
@@ -221,7 +275,7 @@
                                 <i class="bi bi-person me-1"></i>{{ order.first_name or '' }} {{ order.last_name or '' }}
                             </div>
                             {% endif %}
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div>
                                     {% if order.page_count %}
                                     <small class="text-muted"><i class="bi bi-file-text me-1"></i>{{ order.page_count }} Seiten</small>
@@ -230,19 +284,36 @@
                                     <small class="text-success fw-bold ms-2">{{ "%.2f"|format(order.total_price) }} €</small>
                                     {% endif %}
                                 </div>
-                                <span class="badge {{ 'bg-danger' if 'error' in order.status else 'bg-success' }}">
+                                <span class="badge {{ 'bg-danger' if 'error' in order.status else ('bg-primary' if order.status == 'processed' else 'bg-success') }}">
                                     {% if 'error' in order.status %}
                                         <i class="bi bi-x-circle me-1"></i>Fehler
                                     {% elif order.status == 'cancelled' %}
                                         <i class="bi bi-slash-circle me-1"></i>Abgebrochen
+                                    {% elif order.status == 'processed' %}
+                                        <i class="bi bi-check me-1"></i>Druckbereit
                                     {% else %}
-                                        <i class="bi bi-check me-1"></i>Fertig
+                                        <i class="bi bi-printer me-1"></i>Gedruckt
                                     {% endif %}
                                 </span>
                             </div>
                             {% if order.error_message %}
-                            <div class="alert alert-danger py-1 px-2 mt-2 mb-0 small">
+                            <div class="alert alert-danger py-1 px-2 mb-2 small">
                                 <i class="bi bi-exclamation-triangle me-1"></i>{{ order.error_message|truncate(80) }}
+                            </div>
+                            {% endif %}
+                            <!-- Aktionen für verarbeitete Aufträge -->
+                            {% if order.status == 'processed' %}
+                            <div class="d-flex gap-2 mt-auto">
+                                <button class="btn btn-sm btn-primary flex-grow-1 btn-print-order"
+                                        onclick="printOrder({{ order.order_id }}, this)"
+                                        title="Jetzt drucken">
+                                    <i class="bi bi-printer"></i> Drucken
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        onclick="deleteOrder({{ order.order_id }})"
+                                        title="Löschen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </div>
                             {% endif %}
                         </div>
@@ -312,45 +383,383 @@
 
 {% block scripts_extra %}
 <script>
-// Auto-Refresh alle 30 Sekunden für Live-Updates
-let autoRefreshInterval = null;
+// ============================================================
+// Status-Polling für Processing Orders (alle 2 Sekunden)
+// ============================================================
+let statusPollingInterval = null;
 let isProcessing = false;
+const POLLING_INTERVAL = 2000; // 2 Sekunden
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-Refresh starten wenn Aufträge in Verarbeitung sind
+    // Auto-Polling starten wenn Aufträge in Verarbeitung sind
     {% if processing_count > 0 %}
-    startAutoRefresh();
+    startStatusPolling();
     {% endif %}
 });
 
-function startAutoRefresh() {
-    if (!autoRefreshInterval) {
-        autoRefreshInterval = setInterval(function() {
-            if (!isProcessing) {
-                refreshKanbanBoard();
-            }
-        }, 5000); // Alle 5 Sekunden aktualisieren
+function startStatusPolling() {
+    if (!statusPollingInterval) {
+        console.log('Status-Polling gestartet (alle 2 Sekunden)');
+        statusPollingInterval = setInterval(pollAllStatuses, POLLING_INTERVAL);
     }
 }
 
-function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
+function stopStatusPolling() {
+    if (statusPollingInterval) {
+        clearInterval(statusPollingInterval);
+        statusPollingInterval = null;
+        console.log('Status-Polling gestoppt');
     }
 }
 
-async function refreshKanbanBoard() {
+async function pollAllStatuses() {
+    if (isProcessing) return; // Nicht pollen während einer Aktion
+    
     try {
-        // Statistiken aktualisieren via API
-        const res = await fetch('/api/statistics');
-        if (res.ok) {
-            const stats = await res.json();
-            // Update stat cards if needed
+        const res = await fetch('/api/orders/all-status');
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        if (!data.success) return;
+        
+        // Statistiken aktualisieren
+        updateStats(data.counts);
+        
+        // Prüfen ob sich der Status von Aufträgen geändert hat
+        let needsReload = false;
+        const currentProcessingCards = document.querySelectorAll('#column-processing .kanban-card');
+        
+        // Wenn keine Processing-Aufträge mehr da sind, Polling stoppen
+        if (data.counts.processing === 0 && currentProcessingCards.length > 0) {
+            needsReload = true;
         }
-        // Seite nur bei Änderungen neu laden
+        
+        // Wenn neue Processing-Aufträge da sind
+        if (data.counts.processing > currentProcessingCards.length) {
+            needsReload = true;
+        }
+        
+        // Aufträge aktualisieren
+        data.orders.forEach(function(order) {
+            const card = document.getElementById('order-card-' + order.order_id);
+            if (card) {
+                const currentStatus = card.dataset.status;
+                if (currentStatus !== order.status) {
+                    // Status hat sich geändert
+                    needsReload = true;
+                }
+            }
+        });
+        
+        if (needsReload) {
+            console.log('Status-Änderung erkannt, lade neu...');
+            location.reload();
+        }
+        
+        // Polling stoppen wenn keine processing Aufträge mehr
+        if (data.counts.processing === 0) {
+            stopStatusPolling();
+        }
+        
     } catch (err) {
-        console.error('Refresh Fehler:', err);
+        console.error('Status-Polling Fehler:', err);
+    }
+}
+
+function updateStats(counts) {
+    const statPending = document.getElementById('stat-pending');
+    const statProcessing = document.getElementById('stat-processing');
+    const badgePending = document.getElementById('badge-pending');
+    const badgeProcessing = document.getElementById('badge-processing');
+    
+    if (statPending && counts.pending !== undefined) {
+        statPending.textContent = counts.pending;
+    }
+    if (statProcessing && counts.processing !== undefined) {
+        statProcessing.textContent = counts.processing;
+    }
+    if (badgePending && counts.pending !== undefined) {
+        badgePending.textContent = counts.pending;
+    }
+    if (badgeProcessing && counts.processing !== undefined) {
+        badgeProcessing.textContent = counts.processing;
+    }
+}
+
+
+// ============================================================
+// Mehrfachauswahl & Bulk Actions
+// ============================================================
+let selectedOrders = new Set();
+
+function updateBulkSelection() {
+    const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+    selectedOrders.clear();
+    
+    let hasPending = false;
+    let hasProcessed = false;
+    
+    checkboxes.forEach(function(cb) {
+        const orderId = parseInt(cb.dataset.orderId);
+        const status = cb.dataset.status;
+        selectedOrders.add(orderId);
+        
+        if (status === 'pending') hasPending = true;
+        if (status === 'processed') hasProcessed = true;
+    });
+    
+    const bulkBar = document.getElementById('bulkActionBar');
+    const selectedCount = document.getElementById('selectedCount');
+    const bulkStartBtn = document.getElementById('bulkStartBtn');
+    const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+    
+    if (selectedOrders.size > 0) {
+        bulkBar.style.display = 'block';
+        selectedCount.textContent = selectedOrders.size;
+        
+        // Zeige Start-Button nur wenn pending ausgewählt
+        bulkStartBtn.style.display = hasPending ? 'inline-block' : 'none';
+        
+        // Zeige Print-Button nur wenn processed ausgewählt
+        bulkPrintBtn.style.display = hasProcessed ? 'inline-block' : 'none';
+    } else {
+        bulkBar.style.display = 'none';
+    }
+    
+    // Update "Alle auswählen" Checkboxen
+    updateSelectAllCheckboxes();
+}
+
+function updateSelectAllCheckboxes() {
+    const pendingCheckboxes = document.querySelectorAll('#column-pending .order-checkbox');
+    const completedCheckboxes = document.querySelectorAll('#column-completed .order-checkbox');
+    
+    const selectAllPending = document.getElementById('selectAllPending');
+    const selectAllCompleted = document.getElementById('selectAllCompleted');
+    
+    if (selectAllPending && pendingCheckboxes.length > 0) {
+        const allPendingChecked = Array.from(pendingCheckboxes).every(cb => cb.checked);
+        selectAllPending.checked = allPendingChecked;
+        selectAllPending.indeterminate = !allPendingChecked && 
+            Array.from(pendingCheckboxes).some(cb => cb.checked);
+    }
+    
+    if (selectAllCompleted && completedCheckboxes.length > 0) {
+        const allCompletedChecked = Array.from(completedCheckboxes).every(cb => cb.checked);
+        selectAllCompleted.checked = allCompletedChecked;
+        selectAllCompleted.indeterminate = !allCompletedChecked && 
+            Array.from(completedCheckboxes).some(cb => cb.checked);
+    }
+}
+
+function toggleSelectColumn(column, checked) {
+    const columnId = column === 'pending' ? 'column-pending' : 'column-completed';
+    const checkboxes = document.querySelectorAll('#' + columnId + ' .order-checkbox');
+    
+    checkboxes.forEach(function(cb) {
+        cb.checked = checked;
+    });
+    
+    updateBulkSelection();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.order-checkbox').forEach(function(cb) {
+        cb.checked = false;
+    });
+    document.getElementById('selectAllPending').checked = false;
+    document.getElementById('selectAllCompleted').checked = false;
+    
+    selectedOrders.clear();
+    document.getElementById('bulkActionBar').style.display = 'none';
+}
+
+async function bulkStartSelected() {
+    const pendingIds = [];
+    selectedOrders.forEach(function(orderId) {
+        const checkbox = document.querySelector('.order-checkbox[data-order-id="' + orderId + '"]');
+        if (checkbox && checkbox.dataset.status === 'pending') {
+            pendingIds.push(orderId);
+        }
+    });
+    
+    if (pendingIds.length === 0) {
+        showToast('Keine ausstehenden Aufträge ausgewählt', 'warning');
+        return;
+    }
+    
+    if (!confirm('Sollen ' + pendingIds.length + ' Aufträge gestartet werden?')) return;
+    
+    isProcessing = true;
+    const bulkStartBtn = document.getElementById('bulkStartBtn');
+    setButtonLoading(bulkStartBtn, true);
+    
+    try {
+        const res = await fetch('/api/orders/start-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enable_printing: isPrintingEnabled() }),
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast(data.message, data.fail_count > 0 ? 'warning' : 'success');
+            clearSelection();
+            // Polling starten und nach kurzer Verzögerung neu laden
+            startStatusPolling();
+            setTimeout(function() { location.reload(); }, 2000);
+        } else {
+            showToast(data.error || 'Fehler beim Starten', 'danger');
+        }
+    } catch (err) {
+        showToast('Netzwerkfehler: ' + err.message, 'danger');
+    } finally {
+        isProcessing = false;
+        setButtonLoading(bulkStartBtn, false);
+    }
+}
+
+async function bulkPrintSelected() {
+    const processedIds = [];
+    selectedOrders.forEach(function(orderId) {
+        const checkbox = document.querySelector('.order-checkbox[data-order-id="' + orderId + '"]');
+        if (checkbox && checkbox.dataset.status === 'processed') {
+            processedIds.push(orderId);
+        }
+    });
+    
+    if (processedIds.length === 0) {
+        showToast('Keine druckbereiten Aufträge ausgewählt', 'warning');
+        return;
+    }
+    
+    if (!confirm('Sollen ' + processedIds.length + ' Aufträge gedruckt werden?')) return;
+    
+    isProcessing = true;
+    const bulkPrintBtn = document.getElementById('bulkPrintBtn');
+    setButtonLoading(bulkPrintBtn, true);
+    
+    try {
+        const res = await fetch('/api/orders/bulk-print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_ids: processedIds }),
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast(data.message, 'success');
+            clearSelection();
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            showToast(data.error || 'Fehler beim Drucken', 'danger');
+        }
+    } catch (err) {
+        showToast('Netzwerkfehler: ' + err.message, 'danger');
+    } finally {
+        isProcessing = false;
+        setButtonLoading(bulkPrintBtn, false);
+    }
+}
+
+async function bulkDeleteSelected() {
+    const orderIds = Array.from(selectedOrders);
+    
+    if (orderIds.length === 0) {
+        showToast('Keine Aufträge ausgewählt', 'warning');
+        return;
+    }
+    
+    if (!confirm('Sollen ' + orderIds.length + ' Aufträge wirklich gelöscht werden?\n\nDiese Aktion kann nicht rückgängig gemacht werden.')) return;
+    
+    isProcessing = true;
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    setButtonLoading(bulkDeleteBtn, true);
+    
+    try {
+        const res = await fetch('/api/orders/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_ids: orderIds }),
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast(data.message, 'success');
+            
+            // Cards entfernen mit Animation
+            orderIds.forEach(function(orderId) {
+                const card = document.getElementById('order-card-' + orderId);
+                if (card) {
+                    card.classList.add('fade-out');
+                    setTimeout(function() { card.remove(); }, 300);
+                }
+            });
+            
+            clearSelection();
+            setTimeout(function() { 
+                updateColumnCounts();
+                location.reload(); 
+            }, 500);
+        } else {
+            showToast(data.error || 'Fehler beim Löschen', 'danger');
+        }
+    } catch (err) {
+        showToast('Netzwerkfehler: ' + err.message, 'danger');
+    } finally {
+        isProcessing = false;
+        setButtonLoading(bulkDeleteBtn, false);
+    }
+}
+
+
+// ============================================================
+// Print Order (einzeln)
+// ============================================================
+async function printOrder(orderId, btn) {
+    setButtonLoading(btn, true);
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Drucke…';
+    
+    try {
+        const res = await fetch('/api/orders/' + orderId + '/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast(data.message, 'success');
+            
+            // Card aktualisieren - Status auf "printed"
+            const card = document.getElementById('order-card-' + orderId);
+            if (card) {
+                card.dataset.status = 'printed';
+                card.classList.remove('processed');
+                card.classList.add('completed');
+                
+                // Badge aktualisieren
+                const badge = card.querySelector('.badge.bg-primary');
+                if (badge) {
+                    badge.classList.remove('bg-primary');
+                    badge.classList.add('bg-success');
+                    badge.innerHTML = '<i class="bi bi-printer me-1"></i>Gedruckt';
+                }
+                
+                // Buttons entfernen
+                const btnContainer = card.querySelector('.d-flex.gap-2.mt-auto');
+                if (btnContainer) {
+                    btnContainer.remove();
+                }
+            }
+            
+            setButtonSuccess(btn);
+        } else {
+            showToast(data.error || 'Fehler beim Drucken', 'danger');
+            setButtonError(btn);
+        }
+    } catch (err) {
+        showToast('Netzwerkfehler: ' + err.message, 'danger');
+        setButtonLoading(btn, false);
     }
 }
 </script>

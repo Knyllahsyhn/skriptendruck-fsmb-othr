@@ -862,3 +862,123 @@ h1, h2, h3, h4, h5, h6 {
         font-size: 0.6rem;
     }
 }
+
+
+/* ============================================================
+   Bulk Action Bar
+   ============================================================ */
+.bulk-action-bar {
+    position: sticky;
+    top: 70px;
+    z-index: 100;
+    background: linear-gradient(135deg, var(--fsmb-primary) 0%, var(--fsmb-secondary) 100%);
+    animation: slideDown 0.3s ease;
+}
+
+.bulk-action-bar .card-body {
+    color: #fff;
+}
+
+[data-bs-theme="dark"] .bulk-action-bar {
+    background: linear-gradient(135deg, var(--fsmb-surface) 0%, var(--fsmb-bg-secondary) 100%);
+    border: 1px solid var(--fsmb-accent);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Checkbox Styling */
+.order-checkbox {
+    cursor: pointer;
+    width: 1.1em;
+    height: 1.1em;
+}
+
+.order-checkbox:checked {
+    background-color: var(--fsmb-accent);
+    border-color: var(--fsmb-accent);
+}
+
+.order-checkbox:focus {
+    box-shadow: 0 0 0 0.2rem rgba(var(--fsmb-accent-rgb), 0.25);
+    border-color: var(--fsmb-accent);
+}
+
+/* Header checkbox for "select all" */
+.card-header .form-check-input {
+    cursor: pointer;
+    width: 1.2em;
+    height: 1.2em;
+}
+
+.card-header .form-check-input:checked {
+    background-color: var(--fsmb-accent);
+    border-color: var(--fsmb-accent);
+}
+
+
+/* ============================================================
+   Processed / Ready to Print Status
+   ============================================================ */
+.kanban-card.processed {
+    border-left: 3px solid var(--bs-primary);
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.kanban-card.processed:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+/* Print button styling */
+.btn-print-order {
+    transition: all 0.2s ease;
+}
+
+.btn-print-order:hover {
+    transform: scale(1.02);
+}
+
+
+/* ============================================================
+   Status Indicators
+   ============================================================ */
+.status-pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--bs-info);
+    animation: status-pulse 1.5s ease-in-out infinite;
+    margin-right: 0.5rem;
+}
+
+@keyframes status-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+
+/* ============================================================
+   Improved Toast Positioning
+   ============================================================ */
+#toastContainer {
+    z-index: 1100;
+}
+
+#toastContainer .toast {
+    min-width: 300px;
+}

@@ -650,3 +650,303 @@ async def get_statistics(request: Request):
     except Exception as e:
         logger.error(f"Fehler beim Laden der Statistiken: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# Print Endpoint - Manuelles Drucken für verarbeitete Aufträge
+# ---------------------------------------------------------------------------
+
+@router.post("/orders/{order_id}/print")
+async def print_order(request: Request, order_id: int):
+    """Druckt einen verarbeiteten Auftrag aus dem 02_Druckfertig Ordner.
+    
+    Nur für Aufträge mit Status 'processed' verfügbar.
+    Setzt den Status nach erfolgreichem Druck auf 'printed'.
+    """
+    user, error = _require_auth(request)
+    if error:
+        return error
+
+    try:
+        db = _get_db()
+        with db.SessionLocal() as session:
+            stmt = select(OrderRecord).where(OrderRecord.order_id == order_id)
+            order = session.scalar(stmt)
+
+            if not order:
+                return JSONResponse(status_code=404, content={"error": "Auftrag nicht gefunden"})
+
+            if order.status != "processed":
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": (
+                            f"Auftrag im Status '{order.status}' kann nicht gedruckt werden. "
+                            f"Nur Aufträge mit Status 'processed' können gedruckt werden."
+                        )
+                    },
+                )
+
+            # Druckfertige PDF finden
+            merged_pdf_path = Path(order.merged_pdf_path) if order.merged_pdf_path else None
+            
+            if not merged_pdf_path or not merged_pdf_path.exists():
+                # Versuche alternativen Pfad im 02_Druckfertig Ordner
+                druckfertig_dir = settings.base_path / "02_Druckfertig"
+                if druckfertig_dir.exists():
+                    possible_files = list(druckfertig_dir.glob(f"*{order.order_id}*.pdf"))
+                    if possible_files:
+                        merged_pdf_path = possible_files[0]
+                
+                if not merged_pdf_path or not merged_pdf_path.exists():
+                    return JSONResponse(
+                        status_code=404,
+                        content={"error": "Druckfertige PDF-Datei nicht gefunden"}
+                    )
+
+            # Drucken
+            from ...services.printing_service import PrintingService
+            from ...models import Order, ColorMode
+
+            # Temporäres Order-Objekt für den PrintingService
+            temp_order = Order(
+                order_id=order.order_id,
+                filename=order.filename,
+                filepath=Path(order.original_filepath) if order.original_filepath else merged_pdf_path,
+                file_size_bytes=merged_pdf_path.stat().st_size,
+                merged_pdf_path=merged_pdf_path,
+                color_mode=ColorMode(order.color_mode) if order.color_mode else ColorMode.SW,
+            )
+
+            printer = PrintingService()
+            if not printer.is_available:
+                return JSONResponse(
+                    status_code=503,
+                    content={"error": "Druckdienst nicht verfügbar"}
+                )
+
+            success = printer.print_order(temp_order)
+            
+            if success:
+                # Status auf printed setzen
+                order.status = "printed"
+                order.processed_at = datetime.now()
+                session.commit()
+                
+                logger.info(f"Auftrag #{order_id} von {user['username']} gedruckt (Backend: {printer.backend_name})")
+                return JSONResponse(content={
+                    "success": True,
+                    "message": f"Auftrag #{order_id} wurde zum Drucker gesendet"
+                })
+            else:
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Druckauftrag fehlgeschlagen"}
+                )
+
+    except Exception as e:
+        logger.error(f"Fehler beim Drucken von Auftrag #{order_id}: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# Bulk Actions - Mehrfachauswahl
+# ---------------------------------------------------------------------------
+
+@router.post("/orders/bulk-delete")
+async def bulk_delete_orders(request: Request):
+    """Löscht mehrere Aufträge auf einmal.
+    
+    Erwartet JSON-Body mit 'order_ids': [1, 2, 3, ...]
+    """
+    user, error = _require_auth(request)
+    if error:
+        return error
+
+    try:
+        body = await request.json()
+        order_ids = body.get("order_ids", [])
+        
+        if not order_ids:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Keine Aufträge ausgewählt"}
+            )
+
+        db = _get_db()
+        deleted_count = 0
+        errors = []
+        
+        with db.SessionLocal() as session:
+            for order_id in order_ids:
+                stmt = select(OrderRecord).where(OrderRecord.order_id == order_id)
+                order = session.scalar(stmt)
+                
+                if order:
+                    session.delete(order)
+                    deleted_count += 1
+                else:
+                    errors.append(f"Auftrag #{order_id} nicht gefunden")
+            
+            session.commit()
+
+        logger.info(f"Bulk-Delete von {user['username']}: {deleted_count} Aufträge gelöscht")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"{deleted_count} Aufträge gelöscht",
+            "deleted_count": deleted_count,
+            "errors": errors if errors else None
+        })
+
+    except Exception as e:
+        logger.error(f"Fehler bei Bulk-Delete: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.post("/orders/bulk-print")
+async def bulk_print_orders(request: Request):
+    """Druckt mehrere verarbeitete Aufträge auf einmal.
+    
+    Erwartet JSON-Body mit 'order_ids': [1, 2, 3, ...]
+    Nur Aufträge mit Status 'processed' werden gedruckt.
+    """
+    user, error = _require_auth(request)
+    if error:
+        return error
+
+    try:
+        body = await request.json()
+        order_ids = body.get("order_ids", [])
+        
+        if not order_ids:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Keine Aufträge ausgewählt"}
+            )
+
+        from ...services.printing_service import PrintingService
+        from ...models import Order, ColorMode
+
+        printer = PrintingService()
+        if not printer.is_available:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "Druckdienst nicht verfügbar"}
+            )
+
+        db = _get_db()
+        printed_count = 0
+        skipped = []
+        errors = []
+        
+        with db.SessionLocal() as session:
+            for order_id in order_ids:
+                stmt = select(OrderRecord).where(OrderRecord.order_id == order_id)
+                order = session.scalar(stmt)
+                
+                if not order:
+                    errors.append(f"Auftrag #{order_id} nicht gefunden")
+                    continue
+                
+                if order.status != "processed":
+                    skipped.append(f"#{order_id} ({order.status})")
+                    continue
+                
+                # PDF finden
+                merged_pdf_path = Path(order.merged_pdf_path) if order.merged_pdf_path else None
+                if not merged_pdf_path or not merged_pdf_path.exists():
+                    druckfertig_dir = settings.base_path / "02_Druckfertig"
+                    if druckfertig_dir.exists():
+                        possible_files = list(druckfertig_dir.glob(f"*{order.order_id}*.pdf"))
+                        if possible_files:
+                            merged_pdf_path = possible_files[0]
+                
+                if not merged_pdf_path or not merged_pdf_path.exists():
+                    errors.append(f"#{order_id}: PDF nicht gefunden")
+                    continue
+                
+                # Drucken
+                temp_order = Order(
+                    order_id=order.order_id,
+                    filename=order.filename,
+                    filepath=Path(order.original_filepath) if order.original_filepath else merged_pdf_path,
+                    file_size_bytes=merged_pdf_path.stat().st_size,
+                    merged_pdf_path=merged_pdf_path,
+                    color_mode=ColorMode(order.color_mode) if order.color_mode else ColorMode.SW,
+                )
+                
+                if printer.print_order(temp_order):
+                    order.status = "printed"
+                    order.processed_at = datetime.now()
+                    printed_count += 1
+                else:
+                    errors.append(f"#{order_id}: Druck fehlgeschlagen")
+            
+            session.commit()
+
+        logger.info(f"Bulk-Print von {user['username']}: {printed_count} Aufträge gedruckt")
+        
+        message_parts = [f"{printed_count} Aufträge gedruckt"]
+        if skipped:
+            message_parts.append(f"{len(skipped)} übersprungen (falscher Status)")
+        if errors:
+            message_parts.append(f"{len(errors)} Fehler")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": ", ".join(message_parts),
+            "printed_count": printed_count,
+            "skipped": skipped if skipped else None,
+            "errors": errors if errors else None
+        })
+
+    except Exception as e:
+        logger.error(f"Fehler bei Bulk-Print: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/orders/all-status")
+async def get_all_orders_status(request: Request):
+    """Gibt den Status aller Aufträge zurück (für Dashboard-Polling).
+    
+    Optimiert für schnelles Polling, gibt nur essentielle Daten zurück.
+    """
+    user, error = _require_auth(request)
+    if error:
+        return error
+
+    try:
+        db = _get_db()
+        with db.SessionLocal() as session:
+            stmt = select(OrderRecord).order_by(OrderRecord.created_at.desc()).limit(100)
+            orders = session.scalars(stmt).all()
+            
+            orders_data = []
+            counts = {"pending": 0, "processing": 0, "processed": 0, "printed": 0, "error": 0}
+            
+            for order in orders:
+                status = order.status
+                if status.startswith("error"):
+                    counts["error"] += 1
+                elif status in counts:
+                    counts[status] += 1
+                
+                orders_data.append({
+                    "order_id": order.order_id,
+                    "status": order.status,
+                    "filename": order.filename,
+                    "page_count": order.page_count,
+                    "total_price": float(order.total_price) if order.total_price else None,
+                    "error_message": order.error_message,
+                })
+            
+            return JSONResponse(content={
+                "success": True,
+                "orders": orders_data,
+                "counts": counts
+            })
+
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen aller Status: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
