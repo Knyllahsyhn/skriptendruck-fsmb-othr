@@ -8,7 +8,7 @@
  * - Order Actions (Start, Cancel, Delete)
  * - Bulk Actions
  * - Progress Tracking
- * - Auto-Refresh for Processing Orders
+ * - Auto-Refresh für Processing Orders
  */
 
 /* ============================================================

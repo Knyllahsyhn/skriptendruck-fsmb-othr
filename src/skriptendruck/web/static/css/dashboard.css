@@ -230,10 +230,13 @@ body {
     object-fit: contain;
 }
 
-/* Invert logo in dark mode for visibility */
 [data-bs-theme="dark"] .login-logo {
-    filter: brightness(0) invert(1);
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.9));
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    padding: 5px;
 }
+
 
 .login-card h3 {
     color: var(--fsmb-text);
@@ -552,9 +555,9 @@ h1, h2, h3, h4, h5, h6 {
     /* Remove harsh filter, use subtle drop-shadow instead */
     filter: drop-shadow(0 0 1px rgba(255,255,255,0.3));
     transition: filter 0.3s ease, transform 0.2s ease;
-    border-radius: 4px;
+    border-radius: 30px;
     background: rgba(255,255,255,0.1);
-    padding: 2px;
+    
 }
 
 /* On hover, add glow effect */
@@ -571,7 +574,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Footer logo */
 .footer-fsmb .footer-logo {
-    filter: drop-shadow(0 0 1px rgba(255,255,255,0.2));
+    filter: drop-shadow(0 0 2px rgba(255,255,255,0.2));
     opacity: 0.9;
 }
 
