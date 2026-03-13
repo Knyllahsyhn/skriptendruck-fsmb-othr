@@ -270,4 +270,6 @@ def _order_to_dict(order) -> dict:
         "created_at": order.created_at.strftime("%d.%m.%Y %H:%M") if order.created_at else "",
         "processed_at": order.processed_at.strftime("%d.%m.%Y %H:%M") if order.processed_at else "",
         "operator": order.operator,
+        "merged_pdf_path": order.merged_pdf_path,
+        "original_filepath": order.original_filepath,
     }
