@@ -221,14 +221,18 @@ def _run_pipeline_for_order(order_record: OrderRecord, enable_printing: bool = N
 async def start_order(request: Request, order_id: int):
     """Startet die Pipeline-Verarbeitung für einen 'pending' Auftrag.
 
-    Führt die vollständige Verarbeitung aus:
-    Dateiname parsen → User validieren → PDF analysieren →
-    Preis berechnen → Deckblatt → Merge → Dateien organisieren.
+    Der Auftrag wird zur Job-Queue hinzugefügt und asynchron verarbeitet.
+    Der Server bleibt responsiv, auch bei vielen gleichzeitigen Aufträgen.
 
     Akzeptiert einen optionalen JSON-Body mit ``enable_printing`` (bool).
     Wenn gesetzt, überschreibt dieser Wert die .env-Einstellung
     ``ENABLE_PRINTING``. Wird vom Dashboard-Printing-Toggle gesendet.
+    
+    Returns:
+        JSON mit queue_position und job_status
     """
+    from ..job_queue import job_queue
+    
     user, error = _require_auth(request)
     if error:
         return error
@@ -262,36 +266,28 @@ async def start_order(request: Request, order_id: int):
                     },
                 )
 
-            # Operator setzen
-            order.operator = user["username"]
-            order.status = "processing"
-            session.commit()
-
-            # Snapshot der benötigten Daten für die Thread-Ausführung
-            order_snapshot = OrderRecord(
+            # Job zur Queue hinzufügen
+            job = await job_queue.add_job(
                 order_id=order.order_id,
                 filename=order.filename,
                 original_filepath=order.original_filepath,
-                operator=order.operator,
+                operator=user["username"],
+                enable_printing=enable_printing or False
             )
 
-        # Pipeline in einem Thread ausführen (blockiert nicht den Event-Loop)
-        import functools
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(
-            None,
-            functools.partial(_run_pipeline_for_order, order_snapshot, enable_printing=enable_printing),
+        logger.info(
+            f"Auftrag #{order_id} von {user['username']} zur Queue hinzugefügt "
+            f"(Position: {job.queue_position})"
         )
-
-        if result["success"]:
-            logger.info(f"Auftrag #{order_id} von {user['username']} verarbeitet: {result['message']}")
-            return JSONResponse(content={"success": True, "message": result["message"]})
-        else:
-            logger.warning(f"Auftrag #{order_id} fehlgeschlagen: {result['message']}")
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "error": result["message"]},
-            )
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"Auftrag #{order_id} zur Warteschlange hinzugefügt",
+            "queued": True,
+            "queue_position": job.queue_position,
+            "pending_in_queue": job_queue.pending_count,
+            "processing_count": job_queue.processing_count,
+        })
 
     except Exception as e:
         logger.error(f"Fehler beim Starten von Auftrag #{order_id}: {e}")
@@ -553,19 +549,24 @@ async def export_billing_excel(request: Request):
 
 @router.post("/orders/start-all")
 async def start_all_pending_orders(request: Request):
-    """Startet die Pipeline für ALLE pending Aufträge nacheinander.
+    """Fügt ALLE pending Aufträge zur Job-Queue hinzu.
 
-    Gibt für jeden Auftrag ein Ergebnis zurück (success/fail).
-    Wenn ein Auftrag fehlschlägt, werden die anderen trotzdem verarbeitet.
+    Die Aufträge werden asynchron von Background-Workern verarbeitet.
+    Der Server bleibt responsiv, auch bei 20+ Aufträgen.
 
     Akzeptiert einen optionalen JSON-Body mit ``enable_printing`` (bool).
+    
+    Returns:
+        JSON mit Anzahl der zur Queue hinzugefügten Aufträge und Queue-Status.
     """
+    from ..job_queue import job_queue
+    
     user, error = _require_auth(request)
     if error:
         return error
 
     # Optionalen Body auslesen (enable_printing)
-    enable_printing = None
+    enable_printing = False
     try:
         body = await request.json()
         if isinstance(body, dict) and "enable_printing" in body:
@@ -583,56 +584,44 @@ async def start_all_pending_orders(request: Request):
                 return JSONResponse(content={
                     "success": True,
                     "message": "Keine ausstehenden Aufträge vorhanden",
-                    "results": [],
+                    "queued_count": 0,
                     "total": 0,
                 })
 
-            # Set all to processing and collect snapshots
-            snapshots = []
-            for order in pending_orders:
-                order.operator = user["username"]
-                order.status = "processing"
-                snapshots.append(OrderRecord(
-                    order_id=order.order_id,
-                    filename=order.filename,
-                    original_filepath=order.original_filepath,
-                    operator=order.operator,
-                ))
-            session.commit()
+            # Alle Jobs zur Queue hinzufügen
+            orders_data = [
+                {
+                    "order_id": order.order_id,
+                    "filename": order.filename,
+                    "original_filepath": order.original_filepath,
+                }
+                for order in pending_orders
+            ]
 
-        # Process each order sequentially in a thread
-        import functools
-        loop = asyncio.get_running_loop()
-        results = []
-        for snap in snapshots:
-            result = await loop.run_in_executor(
-                None,
-                functools.partial(_run_pipeline_for_order, snap, enable_printing=enable_printing),
-            )
-            results.append({
-                "order_id": snap.order_id,
-                "filename": snap.filename,
-                **result,
-            })
+        # Batch-Add zur Queue
+        jobs = await job_queue.add_jobs_batch(
+            orders=orders_data,
+            operator=user["username"],
+            enable_printing=enable_printing
+        )
 
-        success_count = sum(1 for r in results if r["success"])
-        fail_count = len(results) - success_count
         logger.info(
-            f"Bulk-Verarbeitung von {user['username']}: "
-            f"{success_count} erfolgreich, {fail_count} fehlgeschlagen"
+            f"Bulk-Queue von {user['username']}: "
+            f"{len(jobs)} Aufträge zur Warteschlange hinzugefügt"
         )
 
         return JSONResponse(content={
             "success": True,
-            "message": f"{success_count} von {len(results)} Aufträgen erfolgreich verarbeitet",
-            "results": results,
-            "total": len(results),
-            "success_count": success_count,
-            "fail_count": fail_count,
+            "message": f"{len(jobs)} Aufträge zur Warteschlange hinzugefügt",
+            "queued_count": len(jobs),
+            "total": len(jobs),
+            "pending_in_queue": job_queue.pending_count,
+            "processing_count": job_queue.processing_count,
+            "max_concurrent_jobs": job_queue.max_concurrent_jobs,
         })
 
     except Exception as e:
-        logger.error(f"Fehler bei Bulk-Verarbeitung: {e}")
+        logger.error(f"Fehler bei Bulk-Queue: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -911,7 +900,10 @@ async def get_all_orders_status(request: Request):
     """Gibt den Status aller Aufträge zurück (für Dashboard-Polling).
     
     Optimiert für schnelles Polling, gibt nur essentielle Daten zurück.
+    Enthält jetzt auch Queue-Informationen.
     """
+    from ..job_queue import job_queue
+    
     user, error = _require_auth(request)
     if error:
         return error
@@ -923,7 +915,7 @@ async def get_all_orders_status(request: Request):
             orders = session.scalars(stmt).all()
             
             orders_data = []
-            counts = {"pending": 0, "processing": 0, "processed": 0, "printed": 0, "error": 0}
+            counts = {"pending": 0, "queued": 0, "processing": 0, "processed": 0, "printed": 0, "error": 0}
             
             for order in orders:
                 status = order.status
@@ -932,6 +924,12 @@ async def get_all_orders_status(request: Request):
                 elif status in counts:
                     counts[status] += 1
                 
+                # Queue-Position für wartende Jobs
+                queue_position = 0
+                job_status = job_queue.get_job_status(order.order_id)
+                if job_status and job_status["status"] == "queued":
+                    queue_position = job_status["queue_position"]
+                
                 orders_data.append({
                     "order_id": order.order_id,
                     "status": order.status,
@@ -939,14 +937,81 @@ async def get_all_orders_status(request: Request):
                     "page_count": order.page_count,
                     "total_price": float(order.total_price) if order.total_price else None,
                     "error_message": order.error_message,
+                    "queue_position": queue_position,
                 })
             
             return JSONResponse(content={
                 "success": True,
                 "orders": orders_data,
-                "counts": counts
+                "counts": counts,
+                "queue": {
+                    "pending_count": job_queue.pending_count,
+                    "processing_count": job_queue.processing_count,
+                    "max_concurrent_jobs": job_queue.max_concurrent_jobs,
+                }
             })
 
     except Exception as e:
         logger.error(f"Fehler beim Abrufen aller Status: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/queue/status")
+async def get_queue_status(request: Request):
+    """Gibt den aktuellen Status der Job-Queue zurück.
+    
+    Zeigt:
+    - Anzahl wartender Jobs
+    - Anzahl aktiv verarbeiteter Jobs
+    - Maximale gleichzeitige Jobs
+    - Liste der wartenden Jobs mit Position
+    - Liste der aktuell verarbeiteten Jobs
+    - Statistiken (verarbeitet, Fehler)
+    """
+    from ..job_queue import job_queue
+    
+    user, error = _require_auth(request)
+    if error:
+        return error
+
+    try:
+        status = job_queue.queue_status
+        return JSONResponse(content={
+            "success": True,
+            **status
+        })
+
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen des Queue-Status: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/queue/job/{order_id}")
+async def get_queue_job_status(request: Request, order_id: int):
+    """Gibt den Queue-Status für einen spezifischen Job zurück.
+    
+    Nützlich für Live-Updates der Queue-Position.
+    """
+    from ..job_queue import job_queue
+    
+    user, error = _require_auth(request)
+    if error:
+        return error
+
+    try:
+        job_status = job_queue.get_job_status(order_id)
+        
+        if not job_status:
+            return JSONResponse(
+                status_code=404, 
+                content={"error": f"Job #{order_id} nicht in der Queue gefunden"}
+            )
+        
+        return JSONResponse(content={
+            "success": True,
+            **job_status
+        })
+
+    except Exception as e:
+        logger.error(f"Fehler beim Abrufen des Job-Status #{order_id}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})

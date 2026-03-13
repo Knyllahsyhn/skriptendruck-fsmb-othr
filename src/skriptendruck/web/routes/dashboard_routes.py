@@ -47,12 +47,16 @@ async def index(request: Request):
             pending_orders_data = [_order_to_dict(o) for o in session.scalars(stmt_pending)]
             pending_count = len(pending_orders_data)
             
-            # Spalte 2: In Verarbeitung (processing)
+            # Spalte 2: In Verarbeitung (queued, processing)
             stmt_processing = select(OrderRecord).where(
-                OrderRecord.status == "processing"
+                OrderRecord.status.in_(["queued", "processing"])
             ).order_by(OrderRecord.created_at.asc())
             processing_orders_data = [_order_to_dict(o) for o in session.scalars(stmt_processing)]
             processing_count = len(processing_orders_data)
+            
+            # Zähle queued und processing separat für UI
+            queued_count = sum(1 for o in processing_orders_data if o["status"] == "queued")
+            active_processing_count = processing_count - queued_count
             
             # Spalte 3: Abgeschlossen (processed, printed, error_*, cancelled)
             # Zeige die letzten 20 abgeschlossenen Aufträge
@@ -76,8 +80,22 @@ async def index(request: Request):
         pending_count = 0
         processing_orders_data = []
         processing_count = 0
+        queued_count = 0
+        active_processing_count = 0
         completed_orders_data = []
         completed_count = 0
+    
+    # Queue-Status laden
+    queue_info = {"pending_count": 0, "processing_count": 0, "max_concurrent_jobs": 2}
+    try:
+        from ..job_queue import job_queue
+        queue_info = {
+            "pending_count": job_queue.pending_count,
+            "processing_count": job_queue.processing_count,
+            "max_concurrent_jobs": job_queue.max_concurrent_jobs,
+        }
+    except Exception:
+        pass
     
     templates = request.app.state.templates
     return templates.TemplateResponse("dashboard.html", {
@@ -90,9 +108,13 @@ async def index(request: Request):
         # Spalte 2: In Verarbeitung
         "processing_orders": processing_orders_data,
         "processing_count": processing_count,
+        "queued_count": queued_count,
+        "active_processing_count": active_processing_count,
         # Spalte 3: Abgeschlossen
         "completed_orders": completed_orders_data,
         "completed_count": completed_count,
+        # Queue-Status
+        "queue_info": queue_info,
     })
 
 
@@ -138,6 +160,7 @@ async def orders_page(
     # Status-Optionen für Filter
     status_options = [
         ("pending", "Ausstehend"),
+        ("queued", "In Warteschlange"),
         ("processing", "In Verarbeitung"),
         ("validated", "Validiert"),
         ("processed", "Verarbeitet"),

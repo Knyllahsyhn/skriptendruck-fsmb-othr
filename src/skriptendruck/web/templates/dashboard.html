@@ -73,6 +73,11 @@
                         <div>
                             <div class="text-muted small">In Verarbeitung</div>
                             <div class="fs-3 fw-bold text-info" id="stat-processing">{{ processing_count }}</div>
+                            {% if queued_count > 0 %}
+                            <small class="text-muted">
+                                <i class="bi bi-clock-history me-1"></i>{{ queued_count }} wartend
+                            </small>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -181,7 +186,7 @@
             </div>
         </div>
 
-        <!-- Spalte 2: In Verarbeitung -->
+        <!-- Spalte 2: In Verarbeitung (inkl. Warteschlange) -->
         <div class="col-12 col-lg-4">
             <div class="card border-0 shadow-sm h-100 kanban-column kanban-processing">
                 <div class="card-header border-bottom d-flex justify-content-between align-items-center bg-info bg-opacity-10">
@@ -189,20 +194,41 @@
                         <i class="bi bi-gear-fill text-info me-2 spinner-icon"></i>In Verarbeitung
                         <span class="badge bg-info ms-2" id="badge-processing">{{ processing_count }}</span>
                     </h5>
+                    <!-- Queue-Status Anzeige -->
+                    {% if queue_info.max_concurrent_jobs %}
+                    <small class="text-muted" title="Max. {{ queue_info.max_concurrent_jobs }} gleichzeitige Jobs">
+                        <i class="bi bi-cpu me-1"></i>{{ queue_info.processing_count }}/{{ queue_info.max_concurrent_jobs }}
+                    </small>
+                    {% endif %}
                 </div>
                 <div class="card-body kanban-body p-2" id="column-processing">
                     {% if processing_orders %}
                         {% for order in processing_orders %}
-                        <div class="kanban-card order-card processing" id="order-card-{{ order.order_id }}" 
-                             data-order-id="{{ order.order_id }}" data-status="processing">
+                        <div class="kanban-card order-card {{ 'queued' if order.status == 'queued' else 'processing' }}" 
+                             id="order-card-{{ order.order_id }}" 
+                             data-order-id="{{ order.order_id }}" data-status="{{ order.status }}">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <span class="badge bg-info">#{{ order.order_id }}</span>
+                                <span class="badge {{ 'bg-secondary' if order.status == 'queued' else 'bg-info' }}">
+                                    #{{ order.order_id }}
+                                </span>
                                 <small class="text-muted">{{ order.created_at }}</small>
                             </div>
                             <div class="order-filename mb-2" title="{{ order.filename }}">
                                 <i class="bi bi-file-pdf text-danger me-1"></i>{{ order.filename|truncate(40) }}
                             </div>
-                            <!-- Progress Bar -->
+                            
+                            {% if order.status == 'queued' %}
+                            <!-- Warteschlangen-Anzeige -->
+                            <div class="queue-status mb-2">
+                                <div class="d-flex align-items-center">
+                                    <span class="status-pulse me-2"></span>
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock-history me-1"></i>In Warteschlange
+                                    </small>
+                                </div>
+                            </div>
+                            {% else %}
+                            <!-- Progress Bar für aktive Verarbeitung -->
                             <div class="progress-wrapper mb-2">
                                 <div class="progress" style="height: 8px;">
                                     <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
@@ -212,6 +238,8 @@
                                     <i class="bi bi-arrow-repeat spin me-1"></i>Verarbeite...
                                 </small>
                             </div>
+                            {% endif %}
+                            
                             <div class="d-flex gap-2 mt-auto">
                                 <button class="btn btn-sm btn-outline-warning flex-grow-1"
                                         onclick="cancelOrder({{ order.order_id }}, this)"
@@ -391,8 +419,8 @@ let isProcessing = false;
 const POLLING_INTERVAL = 2000; // 2 Sekunden
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-Polling starten wenn Aufträge in Verarbeitung sind
-    {% if processing_count > 0 %}
+    // Auto-Polling starten wenn Aufträge in Queue/Verarbeitung sind
+    {% if processing_count > 0 or queued_count > 0 %}
     startStatusPolling();
     {% endif %}
 });
@@ -422,20 +450,23 @@ async function pollAllStatuses() {
         const data = await res.json();
         if (!data.success) return;
         
-        // Statistiken aktualisieren
-        updateStats(data.counts);
+        // Statistiken aktualisieren (mit Queue-Info)
+        updateStats(data.counts, data.queue);
         
         // Prüfen ob sich der Status von Aufträgen geändert hat
         let needsReload = false;
         const currentProcessingCards = document.querySelectorAll('#column-processing .kanban-card');
         
-        // Wenn keine Processing-Aufträge mehr da sind, Polling stoppen
-        if (data.counts.processing === 0 && currentProcessingCards.length > 0) {
+        // Gesamtzahl der queued + processing
+        const totalInQueue = (data.counts.processing || 0) + (data.counts.queued || 0);
+        
+        // Wenn keine Processing/Queued-Aufträge mehr da sind, Polling stoppen
+        if (totalInQueue === 0 && currentProcessingCards.length > 0) {
             needsReload = true;
         }
         
-        // Wenn neue Processing-Aufträge da sind
-        if (data.counts.processing > currentProcessingCards.length) {
+        // Wenn sich die Anzahl geändert hat
+        if (totalInQueue !== currentProcessingCards.length) {
             needsReload = true;
         }
         
@@ -456,8 +487,8 @@ async function pollAllStatuses() {
             location.reload();
         }
         
-        // Polling stoppen wenn keine processing Aufträge mehr
-        if (data.counts.processing === 0) {
+        // Polling stoppen wenn keine processing/queued Aufträge mehr
+        if (totalInQueue === 0) {
             stopStatusPolling();
         }
         
@@ -466,7 +497,7 @@ async function pollAllStatuses() {
     }
 }
 
-function updateStats(counts) {
+function updateStats(counts, queueInfo) {
     const statPending = document.getElementById('stat-pending');
     const statProcessing = document.getElementById('stat-processing');
     const badgePending = document.getElementById('badge-pending');
@@ -475,14 +506,22 @@ function updateStats(counts) {
     if (statPending && counts.pending !== undefined) {
         statPending.textContent = counts.pending;
     }
-    if (statProcessing && counts.processing !== undefined) {
-        statProcessing.textContent = counts.processing;
+    
+    // Processing = queued + processing
+    const totalProcessing = (counts.processing || 0) + (counts.queued || 0);
+    if (statProcessing) {
+        statProcessing.textContent = totalProcessing;
     }
     if (badgePending && counts.pending !== undefined) {
         badgePending.textContent = counts.pending;
     }
-    if (badgeProcessing && counts.processing !== undefined) {
-        badgeProcessing.textContent = counts.processing;
+    if (badgeProcessing) {
+        badgeProcessing.textContent = totalProcessing;
+    }
+    
+    // Update Queue-Info wenn vorhanden
+    if (queueInfo) {
+        console.log('Queue-Status:', queueInfo.processing_count + '/' + queueInfo.max_concurrent_jobs + ' aktiv, ' + queueInfo.pending_count + ' wartend');
     }
 }
 

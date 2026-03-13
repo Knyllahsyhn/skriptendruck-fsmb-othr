@@ -37,6 +37,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"Datenbank bereit: {db.db_path}")
 
     from .file_watcher import scan_orders_directory, watch_orders_loop
+    from .job_queue import job_queue
+
+    # --- Job-Queue Worker starten ---
+    max_workers = int(os.environ.get("MAX_CONCURRENT_JOBS", "2"))
+    await job_queue.start_workers(num_workers=max_workers)
+    logger.info(f"Job-Queue mit {max_workers} Workern gestartet")
 
     # Konfigurierbare Werte
     poll_interval = float(os.environ.get("FILE_WATCHER_INTERVAL", "10"))
@@ -59,6 +65,11 @@ async def lifespan(app: FastAPI):
         logger.info("File-Watcher ist deaktiviert (FILE_WATCHER_ENABLED=false)")
 
     yield  # --- App läuft ---
+
+    # Shutdown: Job-Queue sauber beenden
+    logger.info("Shutdown: Warte auf aktive Jobs...")
+    await job_queue.stop_workers(wait_for_completion=True)
+    logger.info("Job-Queue beendet")
 
     # Shutdown: Watcher sauber beenden
     if watcher_task is not None:
@@ -107,6 +118,7 @@ def create_app() -> FastAPI:
     # Jinja2 globale Helper-Funktion für Status-Badges
     _STATUS_BADGE_MAP = {
         "pending": ("Ausstehend", "warning"),
+        "queued": ("In Warteschlange", "info"),
         "processing": ("Verarbeitung…", "info"),
         "validated": ("Validiert", "info"),
         "processed": ("Verarbeitet", "success"),

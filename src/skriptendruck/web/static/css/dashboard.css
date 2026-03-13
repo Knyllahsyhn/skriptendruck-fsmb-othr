@@ -675,6 +675,22 @@ h1, h2, h3, h4, h5, h6 {
     animation: pulse-border 2s infinite;
 }
 
+.kanban-card.queued {
+    border-left: 3px solid var(--bs-secondary);
+    background-color: rgba(var(--bs-secondary-rgb), 0.05);
+}
+
+.kanban-card.queued .status-pulse {
+    background-color: var(--bs-secondary);
+}
+
+/* Queue Status Display */
+.queue-status {
+    padding: 0.5rem;
+    background-color: rgba(var(--bs-secondary-rgb), 0.1);
+    border-radius: 0.375rem;
+}
+
 .kanban-card.completed {
     border-left: 3px solid var(--bs-success);
 }
